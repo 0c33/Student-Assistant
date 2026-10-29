@@ -1,0 +1,9 @@
+{
+ "model": "qwen3.8-flash-next-iq3s",
+ "small_model": "qwen3.8-flash-next-iq3s",
+ "fallbacks": [],
+ "provider": "custom",
+ "today": "2026-10-29",
+ "trials": 1,
+ "recorded": "2026-10-29"
+}

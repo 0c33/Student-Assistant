@@ -1,0 +1,11 @@
+config,model,task,category,lang,trial,passed,failed_graders,tools,steps,tokens,seconds,stopped
+A,qwen3.8-flash-next-iq3s,mem-new-decision,memory,en,0,True,,read_file read_file replace_in_file replace_in_file,3,0,0,done
+A,qwen3.8-flash-next-iq3s,mem-decision-ar,memory,ar,0,True,,read_file replace_in_file,3,0,0,done
+A,qwen3.8-flash-next-iq3s,mem-recall,memory,en,0,True,,search_vault read_file,2,0,0,done
+A,qwen3.8-flash-next-iq3s,mem-recall-ar,memory,ar,0,True,,read_file search_vault read_file,3,0,0,done
+A,qwen3.8-flash-next-iq3s,mem-followups,memory,en,0,True,,read_file search_vault read_file read_file,4,0,0,done
+A,qwen3.8-flash-next-iq3s,date-ai-final,dates,en,0,True,,,1,0,0,done
+A,qwen3.8-flash-next-iq3s,date-ai-final-ar,dates,ar,0,True,,read_file,2,0,0,done
+A,qwen3.8-flash-next-iq3s,date-next-deadline,dates,en,0,True,,read_file,2,0,0,done
+A,qwen3.8-flash-next-iq3s,edit-status,editing,en,0,True,,search_vault read_file replace_in_file,4,0,0,done
+A,qwen3.8-flash-next-iq3s,find-note,retrieval,en,0,True,,search_vault,2,0,0,done

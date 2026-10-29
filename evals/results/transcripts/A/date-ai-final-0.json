@@ -1,0 +1,39 @@
+{
+ "task": {
+  "id": "date-ai-final",
+  "category": "dates",
+  "lang": "en",
+  "prompt": "How many days until my AI final?",
+  "graders": [
+   {
+    "type": "contains_any",
+    "values": [
+     "22"
+    ]
+   }
+  ]
+ },
+ "config": "A",
+ "trial": 0,
+ "passed": true,
+ "stopped": "done",
+ "final": "Your **AI final (CS 471, Dr. Huda)** is on **Friday 20 November 2026, 09:00, Hall A** — that's **22 days from today** (Thu 29 Oct).\n\n⚠️ Heads up on what comes before it, though:\n- **Nov 5** — Information Security midterm (B-12, 10:00) → 7 days\n- **Nov 15** — Graduation project prototype demo (Lab 3, 23:59) → 17 days\n\nSo realistically you have ~1 week before the IS midterm, then a ~5-day window between it and the AI final. Want me to sketch a study schedule for AI that works around those two deadlines?",
+ "grades": [
+  {
+   "type": "contains_any",
+   "pass": true,
+   "detail": ""
+  }
+ ],
+ "files_changed_or_new": {},
+ "messages": [
+  {
+   "role": "user",
+   "content": "How many days until my AI final?"
+  },
+  {
+   "role": "assistant",
+   "content": "Your **AI final (CS 471, Dr. Huda)** is on **Friday 20 November 2026, 09:00, Hall A** — that's **22 days from today** (Thu 29 Oct).\n\n⚠️ Heads up on what comes before it, though:\n- **Nov 5** — Information Security midterm (B-12, 10:00) → 7 days\n- **Nov 15** — Graduation project prototype demo (Lab 3, 23:59) → 17 days\n\nSo realistically you have ~1 week before the IS midterm, then a ~5-day window between it and the AI final. Want me to sketch a study schedule for AI that works around those two deadlines?"
+  }
+ ]
+}
