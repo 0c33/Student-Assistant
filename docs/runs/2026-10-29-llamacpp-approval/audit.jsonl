@@ -1,0 +1,3 @@
+{"ts": "2026-10-29T10:42:16+03:00", "tool": "read_file", "args": {"file_name": "MEMORY.MD"}, "decision": "allow", "ok": true, "result_chars": 183}
+{"ts": "2026-10-29T10:42:16+03:00", "tool": "read_file", "args": {"file_name": "~/.bashrc"}, "decision": "denied", "ok": false, "result_chars": 176}
+{"ts": "2026-10-29T10:42:24+03:00", "tool": "replace_in_file", "args": {"file_name": "MEMORY.MD", "old_content": "## Pending / Follow-up\n- Book a meeting with the supervisor", "new_content": "## Pending / Follow-up\n- Book a meeting with the supervisor\n- Draft the intent parser design"}, "decision": "approved", "ok": true, "result_chars": 163}

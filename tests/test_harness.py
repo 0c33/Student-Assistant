@@ -7,7 +7,7 @@ import pytest
 from sa import llm
 from sa.harness import run_task
 from sa.llm import LLMError
-from sa.tools import SCHEMAS, Tools
+from sa.tools import Tools
 from tests.fake_llm import FakeLLM, answer, tool_call, use_tools
 
 
@@ -54,7 +54,7 @@ def test_only_implemented_tools_are_advertised(tools):
     fake = FakeLLM(answer("ok"))
     run(fake, tools)
     advertised = [t["function"]["name"] for t in fake.requests[0]["tools"]]
-    assert advertised == list(tools.registry) == list(SCHEMAS)
+    assert advertised == list(tools.registry)
     assert "sync_obsidian_graph" not in advertised and "graph_status" not in advertised
 
 
@@ -162,7 +162,7 @@ def test_permission_pipeline(tools, isolated_env):
     out = {m["tool_call_id"]: m["content"] for m in r.history if m["role"] == "tool"}
 
     assert "denied write_file" in out["w"] and not (isolated_env / "x.md").exists()
-    assert "denied make_dir" in out["m"] and not (isolated_env / "projects").exists()  # approval refused
+    assert "did not approve make_dir" in out["m"] and not (isolated_env / "projects").exists()  # refused
     assert "denied user_input" in out["u"]  # unknown decision → deny
     assert out["r"] == '{"error": "blocked by policy"}'
     assert out["l"] == '["MEMORY.MD"]'  # after_tool replaced the result
@@ -189,7 +189,7 @@ def test_tools_read_and_write_utf8(tools, isolated_env):
                                                       "write_mode": "w"})),
                    use_tools(tool_call("read_file", {"file_name": "ملاحظات.md"}, id="read")),
                    answer("ok"))
-    r = run(fake, tools)
+    r = run(fake, tools, approve=lambda name, args: True)
     assert (isolated_env / "ملاحظات.md").read_text(encoding="utf-8") == "اختبار الذكاء الاصطناعي"
     assert "اختبار الذكاء الاصطناعي" in next(m["content"] for m in r.history if m.get("tool_call_id") == "read")
 

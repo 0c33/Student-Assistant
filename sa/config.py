@@ -36,6 +36,7 @@ class Config:
     tz: str
     max_steps: int  # per task
     max_cost: float  # USD per task
+    max_tokens: int  # prompt + completion tokens per task: the budget that works on free models too
     max_result_chars: int
     keep_messages: int  # raw messages of recent tasks kept in context
     keep_summaries: int  # rolling summaries of finished tasks kept in context
@@ -80,6 +81,7 @@ def load() -> Config:
         tz=_get("SA_TZ", "Asia/Riyadh"),
         max_steps=_number("SA_MAX_STEPS", "20", int),
         max_cost=_number("SA_MAX_COST_USD", "0.05", float),
+        max_tokens=_number("SA_MAX_TOKENS", "150000", int),
         max_result_chars=_number("SA_MAX_RESULT_CHARS", "4000", int),
         keep_messages=_number("SA_KEEP_MESSAGES", "20", int),
         keep_summaries=_number("SA_KEEP_SUMMARIES", "10", int),

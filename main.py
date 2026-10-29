@@ -4,6 +4,8 @@
     uv run main.py chat --session exams             chat in .sa/sessions/exams.jsonl
     uv run main.py ask "What's due this week?"      one task, then exit (add --session NAME to keep it)
 
+Every write to the vault asks for approval first (--yes approves them all, for evals). The sandbox always applies:
+nothing outside the vault, and never the assistant's own code (--allow-self-edit lifts only the latter).
 Settings come from .env (see .env.example): the provider and model, the vault (SA_ROOT), budgets.
 """
 
@@ -13,10 +15,10 @@ import argparse
 import sys
 
 from sa import config
-from sa.harness import run_task
+from sa.harness import auto_approve
 from sa.llm import LEDGER
 from sa.session import Session, chat_loop
-from sa.tools import Tools
+from sa.tools import make_tools
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -27,6 +29,10 @@ def main(argv: list[str] | None = None) -> int:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--session", default=argparse.SUPPRESS, metavar="NAME",
                         help="save to and resume from .sa/sessions/NAME.jsonl")
+    common.add_argument("--yes", action="store_true", default=argparse.SUPPRESS,
+                        help="approve every write without asking (evals); the sandbox still applies")
+    common.add_argument("--allow-self-edit", action="store_true", default=argparse.SUPPRESS,
+                        help="let the agent change its own code (main.py, sa/, spec/); off by default")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
                                  parents=[common])
     sub = ap.add_subparsers(dest="cmd")
@@ -35,6 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     ask.add_argument("task")
     args = ap.parse_args(argv)
     session_name = getattr(args, "session", None)
+    yes, self_edit = getattr(args, "yes", False), getattr(args, "allow_self_edit", False)
 
     cfg = config.load()
     if not cfg.root.is_dir():
@@ -44,16 +51,18 @@ def main(argv: list[str] | None = None) -> int:
         cfg.root.mkdir(parents=True)
         print(f"📁 Created the vault folder {cfg.root} (set SA_ROOT in .env to use your own).")
 
-    if args.cmd == "ask":
-        if session_name:
-            run = Session(cfg, session_name).ask(args.task)
-        else:  # one-off: no session file, no summary call
-            run = run_task(args.task, [], Tools(cfg.root), system=Session(cfg).system_prompt(),
-                           max_steps=cfg.max_steps, max_cost=cfg.max_cost)
+    if self_edit:
+        print("⚠️  --allow-self-edit: the agent may change its own code (writes still ask for approval).")
+    tools = make_tools(cfg, allow_self_edit=self_edit)
+    approve = auto_approve if yes else None  # None: ask in the terminal
+
+    if args.cmd == "ask":  # one task; without --session nothing is saved and no summary is made
+        session = Session(cfg, session_name, tools=tools, approve=approve, summarize=bool(session_name))
+        run = session.ask(args.task)
         print(f"\n🤖 {run.final or f'(stopped: {run.stopped})'}\n\n{LEDGER}")
         return 0 if run.stopped == "done" else 1
 
-    chat_loop(Session(cfg, session_name or "default"))
+    chat_loop(Session(cfg, session_name or "default", tools=tools, approve=approve))
     return 0
 
 

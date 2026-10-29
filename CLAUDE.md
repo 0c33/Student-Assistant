@@ -283,31 +283,33 @@ context (Phase 2). These small fixes go first:
   and that the date comes after the spec; test that an over-cap memory write is refused; test that a 300 KB file
   read is capped and the next task still runs.
 
-### Phase 3 · Harness control + sandbox (bugs 11, 12 · capstone req 3)
-- [ ] `tools._safe(path)`: resolve against `SA_ROOT`, reject anything outside (`..`, absolute paths, symlinks
+### Phase 3 · Harness control + sandbox (bugs 11, 12 · capstone req 3) ✅
+- [x] `tools._safe(path)`: resolve against `SA_ROOT`, reject anything outside (`..`, absolute paths, symlinks
       pointing out) with `PermissionError`. Used by **every** file tool.
-- [ ] `replace_in_file` / `remove_from_file`: unique match required; error states the match count. Empty
+- [x] `replace_in_file` / `remove_from_file`: unique match required; error states the match count. Empty
       `old_content` is refused (today `replace("", x)` inserts x between every character of the file).
-- [ ] UTF-8 on all reads/writes. `list_dir` returns names with a trailing `/` for dirs, errors as JSON.
-- [ ] Generate tool schemas from typed functions with docstrings (one registry → `get_tools()` and dispatch).
-- [ ] Permission policy: read tools → allow; `write_file`, `replace_in_file`, `remove_from_file`, `make_dir` → **ask**
+- [x] UTF-8 on all reads/writes. `list_dir` returns names with a trailing `/` for dirs, errors as JSON.
+- [x] Generate tool schemas from typed functions with docstrings (one registry → `get_tools()` and dispatch).
+- [x] Permission policy: read tools → allow; `write_file`, `replace_in_file`, `remove_from_file`, `make_dir` → **ask**
       (show a diff preview: path + old/new snippet); anything touching `main.py`, `sa/`, `spec/` → **deny**
       unless started with `--allow-self-edit`. The policy is the **default** in `run_task`, `Session` and
       `main.py` (today no production path passes a `permission`, so every write runs unasked).
-- [ ] The deny is a **guard in code**, so it holds even when a human approves the call ("tired human clicks yes",
+- [x] The deny is a **guard in code**, so it holds even when a human approves the call ("tired human clicks yes",
       Lab 3.1): the sandbox and self-edit checks run after approval, not instead of it.
-- [ ] `--yes` flag auto-approves inside the sandbox (for evals); the sandbox still applies.
-- [ ] Audit log: `.sa/audit.jsonl` with time, tool, args (long values truncated, numbers that look like IDs or
+- [x] `--yes` flag auto-approves inside the sandbox (for evals); the sandbox still applies.
+- [x] Audit log: `.sa/audit.jsonl` with time, tool, args (long values truncated, numbers that look like IDs or
       phones redacted), decision, result size.
-- [ ] Traces: `.sa/traces.jsonl`, one span per task / model call / tool call with OpenTelemetry GenAI attribute
+- [x] Traces: `.sa/traces.jsonl`, one span per task / model call / tool call with OpenTelemetry GenAI attribute
       names (`gen_ai.operation.name`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`,
       `gen_ai.usage.output_tokens`, `gen_ai.tool.name`, duration). Plain JSON, no new dependency.
-- [ ] Budgets: `SA_MAX_STEPS`, `SA_MAX_COST_USD` enforced in `run_task`, plus `SA_MAX_TOKENS` per task: on
+- [x] Budgets: `SA_MAX_STEPS`, `SA_MAX_COST_USD` enforced in `run_task`, plus `SA_MAX_TOKENS` per task: on
       `:free` models the dollar cost is always 0, so only a token/request budget actually stops a looping task.
 - **Accept:** pytest proves `read_file("../../etc/passwd")`, `write_file("/home/x/.bashrc", …)`, `~/…` and a
   symlink escape are all refused; a denied write returns a JSON error and the loop continues; an approved
   self-edit is still blocked; **product-path tests** drive `main.main(["ask", …])` and `Session.ask` with the
   fake LLM and assert that a `write_file` reaches the approval hook.
+  - ✅ `tests/test_tools.py`, `tests/test_security.py`; real-model run with approval, a denied escape, audit log
+    and traces: `docs/runs/2026-10-29-llamacpp-approval/`.
 
 ### Phase 4 · MCP (capstone req 1)
 - [ ] `servers/vault_mcp.py` (PEP 723, `mcp` dependency): exposes the vault read tools; write tools only with `--write`;
