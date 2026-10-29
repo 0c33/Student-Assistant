@@ -152,6 +152,30 @@ Model `qwen3.8-flash-next-iq3s` (judge: `qwen3.8-flash-next-iq3s`), recorded 202
 **Judge check:** 5 judged answers labelled independently before reading the verdict (who labelled them: `evals/results/judge_check.csv`); the judge agreed on 5/5. All of them were passes, so this shows the judge doesn't fail good answers, not that it catches bad ones.
 <!-- eval:end -->
 
+
+**Where the one change shows** (pass rates hit the ceiling, so compare cost per task, A → B):
+
+| Task | Requests A → B | Tokens A → B |
+|---|---|---|
+| `mem-followups` | 4 → 1 | 13,622 → 3,419 |
+| `mem-recall-ar` | 3 → 2 | 11,558 → 6,848 |
+| `mem-recall` | 2 → 1 | 6,937 → 3,333 |
+| `date-next-deadline` | 2 → 1 | 6,687 → 3,571 |
+| `edit-status` | 4 → 4 | 13,559 → 14,678 |
+| `plan-study` | 7 → 8 | 26,300 → 37,607 |
+
+B makes ~11% fewer model calls and uses ~6% fewer tokens overall: with MEMORY.MD in the prompt, memory
+questions need no `read_file` (biggest win: the memory tasks). It costs more on long planning tasks, where the
+injected memory rides along on every step. Rows with 0.0 s were replayed from the cache of an earlier,
+interrupted recording of the same trials (same salt, same requests).
+
+**Error analysis including the transcript review** (the graders passed every trial; reading transcripts did not):
+
+| Root cause | Count (A) | Count (B) | Example task | Fix |
+|---|---:|---:|---|---|
+| grader too lenient: unrequested deletion | 1 | 0 | `mem-decision-ar` | grader: `file_contains` on lines the task must not touch |
+| wrong fact (weekday of the pinned date) | 1 | 0 | `plan-study` | judge rubric names the day of the week |
+
 **Beyond the graders** (read in the transcripts, `evals/results/judge_check.csv`): in `mem-decision-ar` (A) the
 model also **deleted** the "meet Dr. Noura" follow-up without asking, against the spec's "never delete context
 without asking": no grader checks for unrequested deletions (next grader: `file_contains` on untouched lines). In
