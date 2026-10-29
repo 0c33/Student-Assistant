@@ -199,7 +199,7 @@ SA_FALLBACKS=google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-super-120b-a12b:fr
 # SA_API_KEY=none
 # SA_MODEL=<model name the server expects>
 
-SA_ROOT=~/Documents/LifeLogs     # the vault; every file tool is confined here
+SA_ROOT=~/Documents/LifeLogs     # the vault; every file tool is confined here (Phase 1b: commented out by default)
 SA_TZ=Asia/Riyadh
 SA_MAX_STEPS=20
 SA_MAX_COST_USD=0.05             # per task; free models count tokens at 0
@@ -239,6 +239,20 @@ SA_CACHE=1                       # replay identical requests from .sa/cache (sav
   - ✅ real run on Sami's llama.cpp server (2026-10-29): 4 tool calls incl. two parallel ones, no error.
   - ⏳ OpenRouter Gemma run: needs `OPENROUTER_API_KEY` in `.env`.
 
+### Phase 1b · Fixes from the first mock grading (do next, then Phase 3, then Phase 2)
+The agent can currently read and write outside the vault with no approval, so safety (Phase 3) comes before
+context (Phase 2). These small fixes go first:
+- [ ] `tests/conftest.py` clears **every** `SA_*` variable before each test (a developer `.env` with
+      `SA_RETRIES=0` must not change test results).
+- [ ] `run_task` / `Session` resolve `llm.chat` and `llm.LEDGER` at call time, not as default-argument values
+      bound at import (a rebound ledger must be the one the budget reads).
+- [ ] `llm`: a `Retry-After` above `MAX_WAIT` skips straight to the next model instead of sleeping 30 s and
+      retrying; cap the total wait per request (≤ 20 s: the Day 5 switch-to-backup threshold). The `MAX_WAIT`
+      comment must match the code.
+- [ ] `.env.example` must not point `SA_ROOT` at a real personal folder: leave it commented (default:
+      `vault/` in the project), and `main.py` only auto-creates that default, never an arbitrary path.
+- [ ] Commit the 2026-10-29 llama.cpp run (synthetic vault) as `docs/runs/` evidence for the Phase 1 claim.
+
 ### Phase 2 · Context engineering (bug 10, 14 · capstone req 2)
 - [ ] Move the system prompt to `spec/AGENTS.md` (**not** the root: Codex would load it as its own instructions).
       Keep Sami's sections. Remove claims the harness doesn't back (sub-agents, files that don't exist) or mark
@@ -257,18 +271,28 @@ SA_CACHE=1                       # replay identical requests from .sa/cache (sav
       the agent finds notes instead of reading the whole vault.
 - [ ] **Context anatomy**: `uv run main.py context` prints tokens per part (system, tools, history, tool results)
       for the next request. Its numbers go in the README to justify the budget choices.
+- [ ] `session.SUMMARY_PROMPT` today says "keep names, dates, numbers … exactly": change it to keep decisions,
+      dates and file paths, and drop grades, IDs and phone numbers; add a regex redaction pass before a summary
+      is saved or resent.
+- [ ] The token budget covers the whole request (spec + Data.md + MEMORY.MD + summaries + tail), not messages.
+      A task that stops with `error` keeps only its question and the harness note in the tail (the JSONL keeps
+      everything): one oversized tool result must not poison every later task in the session.
+- [ ] MEMORY.MD injection is a switch (`SA_MEMORY=inject|tool`), so the Phase 5 A/B comparison stays one flag.
 - **Accept:** test that compaction never leaves an orphan tool message; test that the prompt contains today's date
-  and that the date comes after the spec; test that an over-cap memory write is refused.
+  and that the date comes after the spec; test that an over-cap memory write is refused; test that a 300 KB file
+  read is capped and the next task still runs.
 
 ### Phase 3 · Harness control + sandbox (bugs 11, 12 · capstone req 3)
 - [ ] `tools._safe(path)`: resolve against `SA_ROOT`, reject anything outside (`..`, absolute paths, symlinks
       pointing out) with `PermissionError`. Used by **every** file tool.
-- [ ] `replace_in_file` / `remove_from_file`: unique match required; error states the match count.
+- [ ] `replace_in_file` / `remove_from_file`: unique match required; error states the match count. Empty
+      `old_content` is refused (today `replace("", x)` inserts x between every character of the file).
 - [ ] UTF-8 on all reads/writes. `list_dir` returns names with a trailing `/` for dirs, errors as JSON.
 - [ ] Generate tool schemas from typed functions with docstrings (one registry → `get_tools()` and dispatch).
 - [ ] Permission policy: read tools → allow; `write_file`, `replace_in_file`, `remove_from_file`, `make_dir` → **ask**
       (show a diff preview: path + old/new snippet); anything touching `main.py`, `sa/`, `spec/` → **deny**
-      unless started with `--allow-self-edit`.
+      unless started with `--allow-self-edit`. The policy is the **default** in `run_task`, `Session` and
+      `main.py` (today no production path passes a `permission`, so every write runs unasked).
 - [ ] The deny is a **guard in code**, so it holds even when a human approves the call ("tired human clicks yes",
       Lab 3.1): the sandbox and self-edit checks run after approval, not instead of it.
 - [ ] `--yes` flag auto-approves inside the sandbox (for evals); the sandbox still applies.
@@ -277,10 +301,12 @@ SA_CACHE=1                       # replay identical requests from .sa/cache (sav
 - [ ] Traces: `.sa/traces.jsonl`, one span per task / model call / tool call with OpenTelemetry GenAI attribute
       names (`gen_ai.operation.name`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`,
       `gen_ai.usage.output_tokens`, `gen_ai.tool.name`, duration). Plain JSON, no new dependency.
-- [ ] Budgets: `SA_MAX_STEPS`, `SA_MAX_COST_USD` enforced in `run_task`.
-- **Accept:** pytest proves `read_file("../../etc/passwd")`, `write_file("/home/x/.bashrc", …)` and a symlink
-  escape are all refused; a denied write returns a JSON error and the loop continues; an approved self-edit is
-  still blocked.
+- [ ] Budgets: `SA_MAX_STEPS`, `SA_MAX_COST_USD` enforced in `run_task`, plus `SA_MAX_TOKENS` per task: on
+      `:free` models the dollar cost is always 0, so only a token/request budget actually stops a looping task.
+- **Accept:** pytest proves `read_file("../../etc/passwd")`, `write_file("/home/x/.bashrc", …)`, `~/…` and a
+  symlink escape are all refused; a denied write returns a JSON error and the loop continues; an approved
+  self-edit is still blocked; **product-path tests** drive `main.main(["ask", …])` and `Session.ask` with the
+  fake LLM and assert that a `write_file` reaches the approval hook.
 
 ### Phase 4 · MCP (capstone req 1)
 - [ ] `servers/vault_mcp.py` (PEP 723, `mcp` dependency): exposes the vault read tools; write tools only with `--write`;
@@ -397,4 +423,12 @@ Example task lines:
 - Ask Sami before: changing `spec/AGENTS.md`'s personality/tone sections, adding any network/egress tool, adding
   dependencies beyond section 1, or pushing to GitHub (force-pushes above all).
 - Evidence over claims: anything the README says must point at code, a test, a CSV row or a transcript.
+- Start `README.md` (course template) now and update it every phase, with honest "not done yet" rows: it is
+  worth points at every stage, not only at the end.
+- After each phase, rebuild the grading bundle and re-run the mock grader; log the score below.
+
+### Mock grading log
+| Date | State | Score | Grader |
+|---|---|---|---|
+| 2026-10-29 | after Phase 1 | 21.5 / 100 (system 35, context/harness 35, eval 0, security 10, presentation 20) | Opus 5.5, incognito, course rubric |
 - Synthetic data only in the repo, the evals and the demo.
