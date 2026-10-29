@@ -217,24 +217,27 @@ SA_CACHE=1                       # replay identical requests from .sa/cache (sav
 - [x] Remove hardcoded IP and home path.
 - **Accept:** `uv sync && uv run pytest` runs (tests can be few).
 
-### Phase 1 · The loop (bugs 1, 3, 4, 5, 6, 7, 8, 9, 13)
-- [ ] `llm.chat(messages, tools, model=None)`: Sami's raw `requests.post` (no SDK); `timeout=120`; retries with
+### Phase 1 · The loop (bugs 1, 3, 4, 5, 6, 7, 8, 9, 13) ✅ except the OpenRouter run
+- [x] `llm.chat(messages, tools, model=None)`: Sami's raw `requests.post` (no SDK); `timeout=120`; retries with
       backoff on 429/5xx; tries fallbacks in order; records prompt/completion tokens in a ledger; raises `LLMError`.
-- [ ] `harness.run_task(task, history, tools, *, max_steps, max_cost, permission, approve, before_tool, after_tool)`
+- [x] `harness.run_task(task, history, tools, *, max_steps, max_cost, permission, approve, before_tool, after_tool)`
       returning a `Run(final, history, steps, stopped, cost, tool_calls)` where
       `stopped ∈ {done, max_steps, max_cost, error}` (`error` = the model failed; the history stays well formed).
       - Append the **full** assistant message (with `tool_calls`) before tool results.
       - `calls = msg.get("tool_calls") or []`; no calls → done.
       - Every tool call goes: parse args → permission → `before_tool` → execute (errors → JSON) → `after_tool`.
       - Strip provider-only fields (e.g. `reasoning_content`) from stored assistant messages if a provider rejects them.
-- [ ] `session.py` outer loop: read a task → `run_task` → summarise the finished task (small model) →
+- [x] `session.py` outer loop: read a task → `run_task` → summarise the finished task (small model) →
       keep the system prompt + rolling summaries + last N messages → wait for next task.
       `/new` starts a fresh task, `/quit` exits, empty line = quit.
-- [ ] Sessions persisted as JSONL in `.sa/sessions/<name>.jsonl`; `--session NAME` resumes.
-- [ ] Delete `_llm_json_fallback`, `handle_json_error`, `security_agent`.
+- [x] Sessions persisted as JSONL in `.sa/sessions/<name>.jsonl`; `--session NAME` resumes.
+- [x] Delete `_llm_json_fallback`, `handle_json_error`, `security_agent`.
 - **Accept:** fake-LLM test where the model calls `read_file` then answers → history is
   `system, user, assistant(tool_calls), tool, assistant`. A real run against OpenRouter Gemma completes a
   two-tool task without a 400.
+  - ✅ fake-LLM acceptance test (`tests/test_harness.py::test_read_then_answer_gives_the_full_history`).
+  - ✅ real run on Sami's llama.cpp server (2026-10-29): 4 tool calls incl. two parallel ones, no error.
+  - ⏳ OpenRouter Gemma run: needs `OPENROUTER_API_KEY` in `.env`.
 
 ### Phase 2 · Context engineering (bug 10, 14 · capstone req 2)
 - [ ] Move the system prompt to `spec/AGENTS.md` (**not** the root: Codex would load it as its own instructions).
