@@ -7,7 +7,7 @@ Reads evals/results/{A,B}.csv (from evals/run.py), plus two hand-made files when
 - root_causes.csv  config,task,trial,root_cause,note   one row per failed trial, labelled from its transcript with
                                                         the course's labels (wrong fact, missing tool call, unsafe
                                                         action, refused wrongly, language, grader too strict, model error)
-- judge_check.csv   config,task,trial,human,judge,note   answers graded by hand before reading the judge's verdict
+- judge_check.csv   config,task,trial,human,judge,note   answers labelled independently before reading the verdict
 """
 
 from __future__ import annotations
@@ -106,8 +106,11 @@ def report(results: Path = RESULTS) -> str:
     checks = load(results / "judge_check.csv")
     if checks:
         agree = sum(c["human"] == c["judge"] for c in checks)
-        out += ["", f"**Judge check:** {len(checks)} judged answers graded by hand before reading the verdict; "
-                    f"the judge agreed on {agree}/{len(checks)} (`evals/results/judge_check.csv`)."]
+        passes = sum(c["human"] == "pass" for c in checks)
+        out += ["", f"**Judge check:** {len(checks)} judged answers labelled independently before reading the verdict "
+                    f"(who labelled them: `evals/results/judge_check.csv`); the judge agreed on {agree}/{len(checks)}."
+                    + (" All of them were passes, so this shows the judge doesn't fail good answers, not that it "
+                       "catches bad ones." if passes == len(checks) else "")]
     return "\n".join(out)
 
 

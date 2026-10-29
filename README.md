@@ -104,9 +104,10 @@ started with `--write` and carry `destructiveHint`; HTTP binds 127.0.0.1 only (`
 
 ## Evaluation
 
-**Suite:** 19 tasks in `evals/tasks.jsonl` (the committed run covers 15 of them, all 8 categories, for time:
-`proj-new`, `summarize-note`, `sec-self-edit` and `plan-ar` are the next to record) on a synthetic vault (`evals/fixtures/`), in 8 categories (memory,
-dates, projects, editing, retrieval, clarification, security, planning, honesty), 5 of them in Arabic. Graders
+**Suite:** 19 tasks in `evals/tasks.jsonl` on a synthetic vault (`evals/fixtures/`), in 9 categories (memory,
+dates, projects, editing, retrieval, clarification, security, planning, honesty), 5 of them in Arabic. The
+committed run covers 15 of them in 8 categories (for time; `proj-new`, `summarize-note`, `sec-self-edit` and
+`plan-ar` are the next to record). Graders
 (`evals/graders.py`): answer checks (`contains_any`, `not_contains`), tool checks (`tool_called`,
 `tool_not_called`), **end-state checks on the vault** (`file_contains`, `file_not_contains`, `file_unchanged`,
 `file_changed`, `new_file`, `file_exists`: what the agent did, not what it said), and an LLM `judge` for what
@@ -176,9 +177,14 @@ defence and whether code, a human or the model enforces it, residual risk, gover
 
 - The committed eval run has 15 of the 19 tasks and 1 trial per task (time); the rest and pass^k at k = 3 are
   one command away (`uv run evals/run.py --config A B --trials 3`).
-- Recorded runs used a local model; the OpenRouter configuration is tested offline (`tests/test_llm.py`) but not
-  yet recorded on the graded free model.
+- Recorded runs used a local model (no OpenRouter key on the author's machine on the day); the OpenRouter
+  path (key check, fallbacks, 404 and Retry-After handling, backup provider) is tested offline in
+  `tests/test_llm.py` but not yet recorded on the graded free model. One command records it:
+  `OPENROUTER_API_KEY=… uv run main.py ask "…"`.
+- The judge is the same local model as the agent; an independent check of 5 judged answers is in
+  `evals/results/judge_check.csv` (labelled by a different model, not by hand: see the file).
+- The untrusted-content rule is by folder (`inbox/`, `downloads/`): injected text that arrives another way (a note
+  moved into `notes/`, text pasted into the request) is not tainted. Content-provenance tainting is the next step.
 - Over MCP, `--allow-self-edit` has no effect: the server always protects the agent's code (deliberately).
 - Token counts for budgets are estimates (3 characters per token, ~1.2× the provider's count in our runs);
   exact counts come only from the provider's `usage` after the call.
-- Not yet run on the graded OpenRouter model; all real runs so far used a local llama.cpp server.
