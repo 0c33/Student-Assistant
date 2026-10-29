@@ -73,29 +73,36 @@ def chat(messages: list[dict], tools: list[dict] | None = None, model: str | Non
     """Send the conversation; return the assistant message as a plain dict:
     `{"role": "assistant", "content": str | None, "tool_calls": [...]}` ("tool_calls" only when the model made some).
 
-    Tries `model` (default SA_MODEL), then each SA_FALLBACKS model. Raises `LLMError` when none of them answers.
+    Tries `model` (default SA_MODEL), then each SA_FALLBACKS model, then, if SA_FALLBACK_PROVIDER is set, the backup
+    provider's model (e.g. a local server when OpenRouter is down). Raises `LLMError` when none of them answers.
     """
     cfg = cfg or sa_config.load()
-    if cfg.provider == "openrouter" and not cfg.api_key:
-        raise LLMError("OPENROUTER_API_KEY is not set: copy .env.example to .env and add your key.")
-    first = model or cfg.model
-    if not first:
-        raise LLMError("No model set: put SA_MODEL=<the model name your server expects> in .env.")
-
+    routes = [(cfg, [model or cfg.model, *cfg.fallbacks])]
+    if cfg.backup:
+        routes.append((cfg.backup, [cfg.backup.model]))
     failures, patience = [], _Patience(MAX_WAIT)
-    for name in dict.fromkeys([first, *cfg.fallbacks]):  # in order, without duplicates
-        payload = {"model": name, "messages": messages}
-        if tools:
-            payload["tools"] = tools
-        try:
-            data, cached = _request(cfg, payload, patience)
-        except _NextModel as e:
-            failures.append(f"{name}: {e}")
-            print(f"⚠️  model {name} failed ({e})")
+    for n, (route, models) in enumerate(routes):
+        if n:
+            print(f"↪️  every {cfg.provider} model failed: trying the backup provider ({route.provider})")
+        if route.provider == "openrouter" and not route.api_key:
+            failures.append("OPENROUTER_API_KEY is not set: copy .env.example to .env and add your key.")
             continue
-        LEDGER.add(data.get("usage"), cached, model=data.get("model") or name)
-        return _assistant_message(data)
-    raise LLMError("No model answered. " + " | ".join(failures))
+        if not models[0]:
+            failures.append(f"{route.provider}: no model set (SA_MODEL / SA_FALLBACK_MODEL).")
+            continue
+        for name in dict.fromkeys(models):  # in order, without duplicates
+            payload = {"model": name, "messages": messages}
+            if tools:
+                payload["tools"] = tools
+            try:
+                data, cached = _request(route, payload, patience)
+            except _NextModel as e:
+                failures.append(f"{name}: {e}")
+                print(f"⚠️  model {name} failed ({e})")
+                continue
+            LEDGER.add(data.get("usage"), cached, model=data.get("model") or name)
+            return _assistant_message(data)
+    raise LLMError(" | ".join(failures) if len(failures) == 1 else "No model answered. " + " | ".join(failures))
 
 
 # ---------------------------------------------------------------- one model: cache, retries
@@ -123,6 +130,8 @@ def _request(cfg: Config, payload: dict, patience: _Patience) -> tuple[dict, boo
     path = _cache_path(cfg, payload) if cfg.cache else None
     if path and path.exists():
         return json.loads(path.read_text(encoding="utf-8")), True
+    if cfg.replay:  # never the network; the recording may have been answered by a fallback model
+        raise _NextModel(f"SA_CACHE=replay: not in the cache ({path.name})")
 
     url = f"{cfg.base_url}/chat/completions"
     headers = {"Authorization": f"Bearer {cfg.api_key or 'none'}"}
@@ -200,8 +209,10 @@ def _retry_after(res: requests.Response) -> float | None:
 
 
 def _cache_path(cfg: Config, payload: dict) -> Path:
-    key = json.dumps({"url": cfg.base_url, **payload}, sort_keys=True, ensure_ascii=False)
-    return cfg.state / "cache" / f"{hashlib.sha256(key.encode()).hexdigest()[:24]}.json"
+    """The key is the request (model, messages, tools) plus the salt, not the server's URL: a recording made on
+    one machine replays anywhere."""
+    key = json.dumps({"salt": cfg.cache_salt, **payload}, sort_keys=True, ensure_ascii=False)
+    return cfg.cache_dir / f"{hashlib.sha256(key.encode()).hexdigest()[:24]}.json"
 
 
 # ---------------------------------------------------------------- the reply → a clean assistant message

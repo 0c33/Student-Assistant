@@ -8,7 +8,7 @@ from tests.fake_llm import FakeLLM, answer, tool_call, use_tools
 PROJECT = Path(__file__).resolve().parent.parent
 
 LAN_IP = re.compile(r"\b(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})\b")
-HOME_PATH = re.compile(r"/home/\w+|/Users/\w+|[A-Z]:\\Users\\")
+HOME_PATH = re.compile(r"(?<![\w>.])/home/\w+|/Users/\w+|[A-Z]:\\Users\\")
 
 
 def shipped_files():

@@ -71,6 +71,7 @@ class Session:
         """Run one task with the session's context, then save it and summarise it."""
         system = self.system_prompt()
         history = self.history(system)
+        self.tools.tainted.clear()  # taint is per task: what this task read
         run = run_task(task, history, self.tools, system=system, chat=self.chat, model=self.cfg.model,
                        max_steps=self.cfg.max_steps, max_cost=self.cfg.max_cost, max_tokens=self.cfg.max_tokens,
                        permission=self.permission, approve=self.approve,

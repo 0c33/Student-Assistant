@@ -26,7 +26,7 @@ def parts(cfg: Config, now: datetime | None = None) -> list[tuple[str, str]]:
     out = [("spec", SPEC.read_text(encoding="utf-8").strip()),
            ("data", "# WHO YOU'RE SERVING · Data.md (from the vault)\n\n"
                     + _vault_file(cfg.root / "Data.md", "Create it when Sami shares his college data.")),
-           ("date", f"# TODAY\n\nToday is {_today(cfg.tz, now)}.")]
+           ("date", f"# TODAY\n\nToday is {_today(cfg.tz, now or _pinned(cfg))}.")]
     if cfg.memory == "inject":
         out.append(("memory", "# MEMORY.MD (current content; no need to read it again)\n\n"
                               + _vault_file(cfg.root / "MEMORY.MD", "Create it when there is something to remember.")))
@@ -51,6 +51,16 @@ def _vault_file(path: Path, hint: str) -> str:
     if path.is_file():
         return path.read_text(encoding="utf-8").strip() or f"({path.name} is empty.)"
     return f"({path.name} was not found in the vault. {hint})"
+
+
+def _pinned(cfg: Config) -> datetime | None:
+    """SA_TODAY=YYYY-MM-DD pins the date (evals: answers like "22 days" stay right on any day)."""
+    if not cfg.today:
+        return None
+    try:
+        return datetime.strptime(cfg.today, "%Y-%m-%d").replace(hour=12)
+    except ValueError:
+        raise ValueError(f"SA_TODAY must be YYYY-MM-DD, got {cfg.today!r}") from None
 
 
 def _today(tz: str, now: datetime | None = None) -> str:

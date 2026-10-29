@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -31,6 +31,7 @@ class Config:
     model: str
     small_model: str  # summaries (and later the LLM judge)
     fallbacks: tuple[str, ...]  # tried in order when a model is rate-limited, down or missing
+    backup: "Config | None"  # SA_FALLBACK_PROVIDER: a second provider tried when every model above failed
     root: Path  # the vault
     state: Path  # sessions, response cache (.sa/)
     tz: str
@@ -43,7 +44,11 @@ class Config:
     memory: str  # inject (MEMORY.MD in the system prompt) | tool (the model reads it with read_file)
     memory_cap: int  # characters: a write that would make MEMORY.MD longer is refused
     tools: str  # local (in-process) | mcp (from servers/vault_mcp.py over stdio)
-    cache: bool
+    cache: bool  # SA_CACHE=1 (record and replay) or SA_CACHE=replay (replay only: a miss is an error, no network)
+    replay: bool
+    cache_dir: Path
+    cache_salt: str  # part of every cache key: evals set one per trial, so trials are separate samples
+    today: str  # YYYY-MM-DD to pin "today" (evals); empty = the real date
     timeout: float  # seconds per request
     retries: int  # per model, on 429 / 5xx / network errors
 
@@ -69,16 +74,26 @@ def _choice(name: str, default: str, allowed: tuple[str, ...]) -> str:
 
 
 def load() -> Config:
-    provider = _get("SA_PROVIDER", "openrouter")
+    cfg = _load_provider(_get("SA_PROVIDER", "openrouter"), "SA_")
+    backup = _get("SA_FALLBACK_PROVIDER")
+    if not backup:
+        return cfg
+    # the backup provider: same settings, its own endpoint, key and model (SA_FALLBACK_BASE_URL / _API_KEY / _MODEL)
+    alt = _load_provider(backup, "SA_FALLBACK_")
+    return replace(cfg, backup=replace(alt, fallbacks=(), backup=None))
+
+
+def _load_provider(provider: str, prefix: str) -> Config:
+    """The settings, with the provider's endpoint, key and model read from `prefix`-named variables."""
     if provider == "openrouter":
         base_url, api_key, defaults = OPENROUTER_URL, _get("OPENROUTER_API_KEY"), OPENROUTER_DEFAULTS
     elif provider == "custom":  # llama.cpp, vLLM, LM Studio: any OpenAI-compatible server
-        base_url, api_key = _get("SA_BASE_URL", "http://localhost:8080/v1"), _get("SA_API_KEY", "none")
+        base_url, api_key = _get(f"{prefix}BASE_URL", "http://localhost:8080/v1"), _get(f"{prefix}API_KEY", "none")
         defaults = {"model": "", "small_model": "", "fallbacks": ""}
     else:
         raise ValueError(f"SA_PROVIDER must be 'openrouter' or 'custom', got {provider!r}")
 
-    model = _get("SA_MODEL", defaults["model"])
+    model = _get(f"{prefix}MODEL", defaults["model"])
     return Config(
         provider=provider,
         base_url=base_url.rstrip("/"),
@@ -86,6 +101,7 @@ def load() -> Config:
         model=model,
         small_model=_get("SA_SMALL_MODEL", defaults["small_model"] or model),
         fallbacks=tuple(m.strip() for m in _get("SA_FALLBACKS", defaults["fallbacks"]).split(",") if m.strip()),
+        backup=None,
         root=Path(_get("SA_ROOT", str(DEFAULT_ROOT))).expanduser().resolve(),
         state=Path(_get("SA_STATE", str(PROJECT / ".sa"))).expanduser().resolve(),
         tz=_get("SA_TZ", "Asia/Riyadh"),
@@ -98,7 +114,11 @@ def load() -> Config:
         memory=_choice("SA_MEMORY", "inject", ("inject", "tool")),
         memory_cap=_number("SA_MEMORY_CAP", "2200", int),
         tools=_choice("SA_TOOLS", "local", ("local", "mcp")),
-        cache=_get("SA_CACHE", "0") == "1",
+        cache=_get("SA_CACHE", "0") in ("1", "replay"),
+        replay=_get("SA_CACHE", "0") == "replay",
+        cache_dir=Path(_get("SA_CACHE_DIR", str(Path(_get("SA_STATE", str(PROJECT / ".sa"))) / "cache"))).expanduser(),
+        cache_salt=_get("SA_CACHE_SALT"),
+        today=_get("SA_TODAY"),
         timeout=_number("SA_TIMEOUT", "120", float),
         retries=_number("SA_RETRIES", "2", int),
     )

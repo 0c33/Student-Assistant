@@ -22,6 +22,7 @@ from sa.config import PROJECT, Config
 
 SELF = (PROJECT / "main.py", PROJECT / "sa", PROJECT / "spec")  # the agent's own code: never written by the agent
 SECRET_NAMES = {".env"}  # never read or written, wherever they are
+UNTRUSTED = ("inbox", "downloads")  # vault folders whose notes come from other people: data, never instructions
 MEMORY_FILE = "MEMORY.MD"
 PATH_ARGS = ("file_name", "directory", "directory_path")
 
@@ -53,6 +54,7 @@ class Tools:
         self.protect = tuple(Path(p).resolve() for p in protect)
         self.memory_cap = memory_cap
         self.spotlight = spotlight
+        self.tainted: set[str] = set()  # untrusted files read in the current task (see `harness.AutoApproval`)
         self.registry: dict[str, Callable[..., str]] = {
             "read_file": self.read_file,
             "search_vault": self.search_vault,
@@ -82,7 +84,8 @@ class Tools:
         try:
             return fn(**args)
         except Exception as e:  # noqa: BLE001 - the model gets the error and can try something else
-            return error(f"{name} failed: {type(e).__name__}: {e}")
+            message = str(e).replace(str(self.root), "<vault>")  # never show the model the machine's paths
+            return error(f"{name} failed: {type(e).__name__}: {message}")
 
     def refusal(self, name: str, args: dict) -> str | None:
         """Why the sandbox would refuse this call (checked before asking a human), or None."""
@@ -115,6 +118,10 @@ class Tools:
         """A path as the model should see it: relative to the vault."""
         return path.relative_to(self.root).as_posix() or "."
 
+    def untrusted(self, shown: str) -> bool:
+        """Is this vault path in an untrusted folder (inbox/, downloads/)?"""
+        return shown.split("/", 1)[0] in UNTRUSTED
+
     # ---------------------------------------------------------------- the tools
     def read_file(self, file_name: str, start_line: int = 1, max_lines: int = 300) -> str:
         """Read a text file of the vault, or a range of its lines for a long file.
@@ -133,10 +140,13 @@ class Tools:
         if last < len(lines):
             text += f"\n[… {len(lines) - last} more lines: read again with start_line={last + 1}]"
         shown = self._shown(path)
+        if self.untrusted(shown):
+            self.tainted.add(shown)
         if not self.spotlight:
             return f"Reading file {shown} content: {text}"
         text = text.replace("</file>", "</file​>")  # a note can't close our tag and speak as the harness
-        return f'<file path="{shown}" lines="{first}-{last} of {len(lines)}">\n{text}\n</file>'
+        trust = ' trust="untrusted"' if self.untrusted(shown) else ""
+        return f'<file path="{shown}" lines="{first}-{last} of {len(lines)}"{trust}>\n{text}\n</file>'
 
     def search_vault(self, query: str, max_results: int = 20) -> str:
         """Find notes in the vault: Markdown lines (and file names) containing the query's words, best matches first.
@@ -167,6 +177,7 @@ class Tools:
             return f"No notes match {query!r}. Try fewer or different words, or list_dir to browse."
         hits.sort(key=lambda h: (-h[0], h[1], h[2]))
         found = [{"path": p, "line": n, "text": t} for _, p, n, t in hits[:max(max_results, 1)]]
+        self.tainted.update(f["path"] for f in found if f["line"] and self.untrusted(f["path"]))
         return json.dumps({"matches": found, "total": len(hits)}, ensure_ascii=False)
 
     def write_file(self, file_name: str, content: str, write_mode: Literal["a", "w"] = "a") -> str:

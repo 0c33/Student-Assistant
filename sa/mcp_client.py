@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import sys
 import threading
 from concurrent.futures import FIRST_COMPLETED, Future, wait
@@ -90,6 +91,7 @@ class McpTools:
         self._schemas = {t.name: _chat_schema(t) for t in bridge.list_tools()}
         self._schemas["user_input"] = schema(local.user_input)
         self.registry = {name: None for name in self._schemas}  # names, for listings
+        self.tainted: set[str] = set()  # untrusted files the server returned in this task
 
     def schemas(self) -> list[dict]:
         return list(self._schemas.values())
@@ -107,7 +109,11 @@ class McpTools:
         except Exception as e:  # noqa: BLE001 - transport failures reach the model as errors, not crashes
             return error(f"{name} failed over MCP: {type(e).__name__}: {e}")
         text = "\n".join(getattr(c, "text", "") or "" for c in result.content)
-        return error(text) if result.is_error else text
+        if result.is_error:
+            return error(text)
+        paths = [a or b for a, b in re.findall(r'path="([^"]+)"|"path": "([^"]+)"', text)]
+        self.tainted.update(p for p in paths if self.local.untrusted(p))
+        return text
 
 
 def _chat_schema(tool: Any) -> dict:

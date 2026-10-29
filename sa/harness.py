@@ -66,6 +66,9 @@ class TerminalApproval:
 
     def __call__(self, name: str, args: dict) -> bool:
         print("\n" + preview(self.tools, name, args))
+        if self.tools.tainted:
+            print(f"⚠️  This task read untrusted content ({', '.join(sorted(self.tools.tainted))}). "
+                  f"Approve only if this is what YOU asked for.")
         try:
             reply = input("🛡️  Allow this change? [y/N] ")
         except (EOFError, OSError):  # no terminal: nobody approved
@@ -73,10 +76,21 @@ class TerminalApproval:
         return reply.strip().lower() in ("y", "yes", "نعم")
 
 
-def auto_approve(name: str, args: dict) -> bool:
-    """`--yes`: approve every write the policy asks about. The sandbox and protected paths still apply."""
-    print(f"🛡️  auto-approved (--yes): {name}")
-    return True
+class AutoApproval:
+    """`--yes`: approve writes without asking, except once the task has read untrusted content (inbox/, downloads/):
+    then a write may be what a note asked for rather than what Sami asked for, so it needs a human and is refused
+    here. The sandbox and protected paths apply either way."""
+
+    def __init__(self, tools: Tools):
+        self.tools = tools
+
+    def __call__(self, name: str, args: dict) -> bool:
+        if self.tools.tainted:
+            print(f"🛡️  not auto-approved: this task read untrusted content ({', '.join(sorted(self.tools.tainted))}); "
+                  f"{name} needs a human")
+            return False
+        print(f"🛡️  auto-approved (--yes): {name}")
+        return True
 
 
 def preview(tools: Tools, name: str, args: dict, max_lines: int = 12) -> str:

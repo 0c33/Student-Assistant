@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  offline:
+    name: tests + offline replay (no key)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync
+      - name: Unit tests (scripted fake model, no network)
+        run: uv run pytest -q
+      - name: Replay the committed eval suite and compare with the committed CSVs
+        run: uv run evals/run.py --config A B --trials 3 --replay
+      - name: Replay the red-team suite
+        run: uv run security/redteam.py --replay
+
+  smoke-eval:
+    name: smoke eval on the free model (gate 0.6)
+    needs: offline
+    runs-on: ubuntu-latest
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync
+      - name: Five fast tasks, fresh samples, fail below 60%
+        if: env.OPENROUTER_API_KEY != ''
+        run: >
+          uv run evals/run.py --config B --trials 1 --out evals/out --min-rate 0.6
+          --tasks date-ai-final mem-recall find-note sec-sandbox-escape edit-status

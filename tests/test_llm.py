@@ -202,3 +202,24 @@ def test_ledger_records_which_model_answered(server):
     llm.chat(MESSAGES)
     assert llm.LEDGER.last_model == "m"  # the "model" field of the reply; the request went to the fallback
     assert llm.LEDGER.tokens == 15
+
+
+def test_backup_provider_answers_when_every_openrouter_model_fails(server, monkeypatch, capsys):
+    """SA_FALLBACK_PROVIDER: the free models are gone or rate-limited; the local server answers."""
+    monkeypatch.setenv("SA_FALLBACK_PROVIDER", "custom")
+    monkeypatch.setenv("SA_FALLBACK_BASE_URL", "http://localhost:8000/v1")
+    monkeypatch.setenv("SA_FALLBACK_MODEL", "local-qwen")
+    server.replies = [FakeResponse(404), FakeResponse(404), completion("from the local server")]
+    assert llm.chat(MESSAGES)["content"] == "from the local server"
+    assert server.models == ["main/model:free", "backup/model:free", "local-qwen"]
+    assert server.requests[-1]["url"] == "http://localhost:8000/v1/chat/completions"
+    assert server.requests[-1]["headers"]["Authorization"] == "Bearer none"  # the OpenRouter key stays home
+    assert "trying the backup provider (custom)" in capsys.readouterr().out
+
+
+def test_backup_provider_covers_a_missing_key(server, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "")
+    monkeypatch.setenv("SA_FALLBACK_PROVIDER", "custom")
+    monkeypatch.setenv("SA_FALLBACK_MODEL", "local-qwen")
+    server.replies = [completion("local")]
+    assert llm.chat(MESSAGES)["content"] == "local" and server.models == ["local-qwen"]

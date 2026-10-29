@@ -16,7 +16,7 @@ import argparse
 import sys
 
 from sa import config
-from sa.harness import auto_approve
+from sa.harness import AutoApproval
 from sa.llm import LEDGER
 from sa.mcp_client import open_tools
 from sa.session import Session, anatomy, chat_loop
@@ -55,8 +55,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if self_edit:
         print("⚠️  --allow-self-edit: the agent may change its own code (writes still ask for approval).")
-    approve = auto_approve if yes else None  # None: ask in the terminal
     with open_tools(cfg, allow_self_edit=self_edit) as tools:  # in-process, or over MCP with SA_TOOLS=mcp
+        approve = AutoApproval(tools) if yes else None  # None: ask in the terminal
         return dispatch(args.cmd or "chat", args, cfg, tools, session_name, approve)
 
 
