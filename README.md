@@ -18,7 +18,7 @@ Work in progress; this table is updated every phase and only lists what the repo
 
 | Capstone requirement | Status | Evidence |
 |---|---|---|
-| 1 · Multi-step tasks, ≥ 3 tools, one over MCP | 🟡 8 tools, multi-step; **no MCP yet** | `sa/tools.py` (`Tools.registry`), `sa/harness.py::run_task`, `docs/runs/2026-10-29-llamacpp-multi-tool/` |
+| 1 · Multi-step tasks, ≥ 3 tools, one over MCP | ✅ 8 tools; 7 exposed by our MCP server and consumed by the agent over stdio (`SA_TOOLS=mcp`) | `sa/tools.py`, `servers/vault_mcp.py`, `sa/mcp_client.py`, `tests/test_mcp.py`, `docs/mcp.md`, `docs/runs/2026-10-29-llamacpp-mcp/` |
 | 2 · Context file, memory or retrieval, compaction/budget rule | ✅ spec file; MEMORY.MD (capped) + `search_vault`; token-budgeted compaction | `spec/AGENTS.md`, `sa/context.py`, `sa/session.py` (`tail`, `summarize`, `anatomy`), `tests/test_context.py`, `docs/runs/2026-10-29-llamacpp-date-arabic/` |
 | 3 · Human approval on ≥ 1 write, step and cost budgets | ✅ | `sa/harness.py` (`Policy`, `TerminalApproval`, budgets), `sa/tools.py::_safe`, `tests/test_security.py`, `docs/runs/2026-10-29-llamacpp-approval/` |
 | 4 · ≥ 15 eval tasks, two configs, error analysis | ❌ not started | (Phase 5) |
@@ -41,7 +41,9 @@ uv run main.py ask "List my vault, read MEMORY.MD and tell me what's next."
 uv run main.py                # chat; /new = fresh context, /quit or an empty line = exit
 uv run main.py chat --session exams   # saved to .sa/sessions/exams.jsonl and resumed next time
 uv run main.py context        # tokens per part of the next request (system parts, tools, history)
-uv run pytest                 # 135 offline tests: a scripted fake model, no key, no network
+SA_TOOLS=mcp uv run main.py ask "What's in my memory?"   # the same agent, vault tools over MCP (stdio)
+uv run servers/vault_mcp.py --root vault --http 8765      # the vault for any MCP host (read-only unless --write)
+uv run pytest                 # 146 offline tests: a scripted fake model, no key, no network
 ```
 
 The vault is `vault/` in the project unless `SA_ROOT` says otherwise. Every write asks for approval; `--yes`
@@ -76,18 +78,20 @@ flowchart LR
 
 | Tool | Read / write | Over MCP? | Approval? | Trifecta leg |
 |---|---|---|---|---|
-| `read_file` | read | not yet | no | **private** (vault notes, Data.md) + **untrusted** (any note may carry injected text) |
-| `search_vault` | read | not yet | no | private + untrusted (returns matching lines) |
-| `list_dir` | read | not yet | no | private (file names) |
-| `write_file` | write | no | **yes**, diff preview | integrity (can change notes) |
-| `replace_in_file` | write | no | **yes**, diff preview | integrity |
-| `remove_from_file` | write | no | **yes**, diff preview | integrity |
-| `make_dir` | write | no | **yes** | integrity |
-| `user_input` | asks the student | no | n/a | none |
+| `read_file` | read | ✅ | no | **private** (vault notes, Data.md) + **untrusted** (any note may carry injected text) |
+| `search_vault` | read | ✅ | no | private + untrusted (returns matching lines) |
+| `list_dir` | read | ✅ | no | private (file names) |
+| `write_file` | write | ✅ with `--write` | **yes**, diff preview | integrity (can change notes) |
+| `replace_in_file` | write | ✅ with `--write` | **yes**, diff preview | integrity |
+| `remove_from_file` | write | ✅ with `--write` | **yes**, diff preview | integrity |
+| `make_dir` | write | ✅ with `--write` | **yes** | integrity |
+| `user_input` | asks the student | no: stays in the host | n/a | none |
 | *the model API itself* | sends every prompt out | n/a | n/a | **egress**: prompts (incl. vault content) go to the provider |
 
 All file tools are confined to the vault (`Tools._safe`): no absolute paths, `~`, `..`, or symlinks leading out;
 `.env` files are never read; the agent's own code and state (`main.py`, `sa/`, `spec/`, `.sa/`) can't be written.
+The MCP server runs the same `Tools`, so it enforces the same rules for any host; its write tools are off unless
+started with `--write` and carry `destructiveHint`; HTTP binds 127.0.0.1 only (`docs/mcp.md`).
 
 ## Evaluation
 
@@ -124,7 +128,8 @@ change, 3 uncached trials for pass^k, committed CSVs and transcripts, error anal
 
 ## Limitations and next steps
 
-- No MCP server or client yet (Phase 4); no eval suite (Phase 5); no injection attack or red-team suite (Phase 6).
+- No eval suite yet (Phase 5); no injection attack or red-team suite (Phase 6).
+- Over MCP, `--allow-self-edit` has no effect: the server always protects the agent's code (deliberately).
 - Token counts for budgets are estimates (3 characters per token, ~1.2× the provider's count in our runs);
   exact counts come only from the provider's `usage` after the call.
 - Not yet run on the graded OpenRouter model; all real runs so far used a local llama.cpp server.

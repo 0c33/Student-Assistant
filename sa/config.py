@@ -42,6 +42,7 @@ class Config:
     keep_summaries: int  # rolling summaries of finished tasks kept in context
     memory: str  # inject (MEMORY.MD in the system prompt) | tool (the model reads it with read_file)
     memory_cap: int  # characters: a write that would make MEMORY.MD longer is refused
+    tools: str  # local (in-process) | mcp (from servers/vault_mcp.py over stdio)
     cache: bool
     timeout: float  # seconds per request
     retries: int  # per model, on 429 / 5xx / network errors
@@ -96,6 +97,7 @@ def load() -> Config:
         keep_summaries=_number("SA_KEEP_SUMMARIES", "10", int),
         memory=_choice("SA_MEMORY", "inject", ("inject", "tool")),
         memory_cap=_number("SA_MEMORY_CAP", "2200", int),
+        tools=_choice("SA_TOOLS", "local", ("local", "mcp")),
         cache=_get("SA_CACHE", "0") == "1",
         timeout=_number("SA_TIMEOUT", "120", float),
         retries=_number("SA_RETRIES", "2", int),

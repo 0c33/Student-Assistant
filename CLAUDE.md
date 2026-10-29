@@ -314,18 +314,20 @@ context (Phase 2). These small fixes go first:
   - ✅ `tests/test_tools.py`, `tests/test_security.py`; real-model run with approval, a denied escape, audit log
     and traces: `docs/runs/2026-10-29-llamacpp-approval/`.
 
-### Phase 4 · MCP (capstone req 1)
-- [ ] `servers/vault_mcp.py` (PEP 723, `mcp` dependency): exposes the vault read tools; write tools only with `--write`;
+### Phase 4 · MCP (capstone req 1) ✅
+- [x] `servers/vault_mcp.py` (PEP 723, `mcp` dependency): exposes the vault read tools; write tools only with `--write`;
       resources: `vault://memory` (MEMORY.MD), `vault://data` (Data.md). stdio default, `--http PORT` option
       (binds 127.0.0.1 only). Tool annotations: `readOnlyHint` on reads, `destructiveHint` on writes.
       Follow `labs/servers/madar_mcp.py` for the SDK calls (`mcp.server.mcpserver.MCPServer`, MCP 2026-07-28).
-- [ ] The agent consumes it: a small MCP client bridge (see `MCPBridge` in `agentkit.py`) that turns MCP tools into
+- [x] The agent consumes it: a small MCP client bridge (see `MCPBridge` in `agentkit.py`) that turns MCP tools into
       registry tools. Config switch: `SA_TOOLS=local|mcp`.
-- [ ] Optional: implement `sync_obsidian_graph` (validate frontmatter + `[[wikilinks]]`, report broken links,
+- [ ] (optional, not done) Implement `sync_obsidian_graph` (validate frontmatter + `[[wikilinks]]`, report broken links,
       fix only with approval) and `graph_status`. If not implemented, they must not be advertised.
-- [ ] Interop evidence: the same server registered in another host (Claude Code or Hermes Agent); the config
-      snippet and a transcript go in `docs/`.
+- [x] Interop evidence: the official MCP client over Streamable HTTP (transcript) and the Claude Code config
+      snippet, in `docs/mcp.md`. Still worth adding: Sami registers it in Claude Code / Hermes and saves a transcript.
 - **Accept:** `uv run main.py ask "what's in my memory?"` works with `SA_TOOLS=mcp`.
+  - ✅ `tests/test_mcp.py` (in-process, and a real stdio subprocess through `main.main`); real model over MCP:
+    `docs/runs/2026-10-29-llamacpp-mcp/`.
 
 ### Phase 5 · Evals (capstone req 4)
 - [ ] `evals/fixtures/vault/`: synthetic `Data.md` (courses, exam dates around Nov–Dec 2026), `MEMORY.MD`,

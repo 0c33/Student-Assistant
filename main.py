@@ -18,8 +18,8 @@ import sys
 from sa import config
 from sa.harness import auto_approve
 from sa.llm import LEDGER
+from sa.mcp_client import open_tools
 from sa.session import Session, anatomy, chat_loop
-from sa.tools import make_tools
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -55,10 +55,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if self_edit:
         print("⚠️  --allow-self-edit: the agent may change its own code (writes still ask for approval).")
-    tools = make_tools(cfg, allow_self_edit=self_edit)
     approve = auto_approve if yes else None  # None: ask in the terminal
+    with open_tools(cfg, allow_self_edit=self_edit) as tools:  # in-process, or over MCP with SA_TOOLS=mcp
+        return dispatch(args.cmd or "chat", args, cfg, tools, session_name, approve)
 
-    if args.cmd == "context":
+
+def dispatch(cmd: str, args: argparse.Namespace, cfg: config.Config, tools, session_name: str | None, approve) -> int:
+    if cmd == "context":
         session = Session(cfg, session_name or "default", tools=tools)
         rows = anatomy(session)
         total = sum(n for _, n in rows)
@@ -68,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {'total':<28} {total:>7,}  (budget SA_CONTEXT_TOKENS={cfg.context_tokens:,})")
         return 0
 
-    if args.cmd == "ask":  # one task; without --session nothing is saved and no summary is made
+    if cmd == "ask":  # one task; without --session nothing is saved and no summary is made
         session = Session(cfg, session_name, tools=tools, approve=approve, summarize=bool(session_name))
         run = session.ask(args.task)
         print(f"\n🤖 {run.final or f'(stopped: {run.stopped})'}\n\n{LEDGER}")

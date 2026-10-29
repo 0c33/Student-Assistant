@@ -1,0 +1,3 @@
+{"ts": "2026-10-29T10:55:51+03:00", "tool": "read_file", "args": {"file_name": "MEMORY.MD"}, "decision": "allow", "ok": true, "result_chars": 201}
+{"ts": "2026-10-29T10:55:51+03:00", "tool": "search_vault", "args": {"query": "voice assistant project"}, "decision": "allow", "ok": true, "result_chars": 306}
+{"ts": "2026-10-29T10:55:55+03:00", "tool": "read_file", "args": {"file_name": "projects/voice-assistant.md"}, "decision": "allow", "ok": true, "result_chars": 137}
