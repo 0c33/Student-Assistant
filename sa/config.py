@@ -37,9 +37,11 @@ class Config:
     max_steps: int  # per task
     max_cost: float  # USD per task
     max_tokens: int  # prompt + completion tokens per task: the budget that works on free models too
-    max_result_chars: int
-    keep_messages: int  # raw messages of recent tasks kept in context
+    max_result_chars: int  # a longer tool result is cut, with a note saying how much
+    context_tokens: int  # budget for one whole request (system prompt + history), estimated pessimistically
     keep_summaries: int  # rolling summaries of finished tasks kept in context
+    memory: str  # inject (MEMORY.MD in the system prompt) | tool (the model reads it with read_file)
+    memory_cap: int  # characters: a write that would make MEMORY.MD longer is refused
     cache: bool
     timeout: float  # seconds per request
     retries: int  # per model, on 429 / 5xx / network errors
@@ -56,6 +58,13 @@ def _number(name: str, default: str, kind: type):
         return kind(raw)
     except ValueError:
         raise ValueError(f"{name} must be a {kind.__name__}, got {raw!r}") from None
+
+
+def _choice(name: str, default: str, allowed: tuple[str, ...]) -> str:
+    value = _get(name, default)
+    if value not in allowed:
+        raise ValueError(f"{name} must be one of {allowed}, got {value!r}")
+    return value
 
 
 def load() -> Config:
@@ -83,8 +92,10 @@ def load() -> Config:
         max_cost=_number("SA_MAX_COST_USD", "0.05", float),
         max_tokens=_number("SA_MAX_TOKENS", "150000", int),
         max_result_chars=_number("SA_MAX_RESULT_CHARS", "4000", int),
-        keep_messages=_number("SA_KEEP_MESSAGES", "20", int),
+        context_tokens=_number("SA_CONTEXT_TOKENS", "24000", int),
         keep_summaries=_number("SA_KEEP_SUMMARIES", "10", int),
+        memory=_choice("SA_MEMORY", "inject", ("inject", "tool")),
+        memory_cap=_number("SA_MEMORY_CAP", "2200", int),
         cache=_get("SA_CACHE", "0") == "1",
         timeout=_number("SA_TIMEOUT", "120", float),
         retries=_number("SA_RETRIES", "2", int),

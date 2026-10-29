@@ -22,10 +22,10 @@ ID_RE = re.compile(r"(?<!\d)[12]\d{9}(?!\d)")
 MOBILE_RE = re.compile(r"(?<![\d+])(?:\+966|00966|0)?5\d{8}(?!\d)")
 
 
-def redact(text: str, width: int = 200) -> str:
-    """Logs keep the shape of an argument, not its personal data or its bulk."""
+def redact(text: str, width: int | None = 200) -> str:
+    """Logs and summaries keep the shape of a text, not its ID or phone numbers (nor, with a width, its bulk)."""
     text = MOBILE_RE.sub("[REDACTED]", ID_RE.sub("[REDACTED]", text))
-    return text if len(text) <= width else f"{text[:width]}… [{len(text) - width} chars cut]"
+    return text if width is None or len(text) <= width else f"{text[:width]}… [{len(text) - width} chars cut]"
 
 
 def _now() -> str:

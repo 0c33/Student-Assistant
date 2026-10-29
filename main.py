@@ -3,6 +3,7 @@
     uv run main.py                                  chat (session "default", resumed if it exists)
     uv run main.py chat --session exams             chat in .sa/sessions/exams.jsonl
     uv run main.py ask "What's due this week?"      one task, then exit (add --session NAME to keep it)
+    uv run main.py context --session exams          what the next request would contain, in tokens per part
 
 Every write to the vault asks for approval first (--yes approves them all, for evals). The sandbox always applies:
 nothing outside the vault, and never the assistant's own code (--allow-self-edit lifts only the latter).
@@ -17,7 +18,7 @@ import sys
 from sa import config
 from sa.harness import auto_approve
 from sa.llm import LEDGER
-from sa.session import Session, chat_loop
+from sa.session import Session, anatomy, chat_loop
 from sa.tools import make_tools
 
 
@@ -39,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("chat", parents=[common], help="talk task by task (default)")
     ask = sub.add_parser("ask", parents=[common], help="run one task and exit")
     ask.add_argument("task")
+    sub.add_parser("context", parents=[common], help="show the token cost of each part of the next request")
     args = ap.parse_args(argv)
     session_name = getattr(args, "session", None)
     yes, self_edit = getattr(args, "yes", False), getattr(args, "allow_self_edit", False)
@@ -55,6 +57,16 @@ def main(argv: list[str] | None = None) -> int:
         print("⚠️  --allow-self-edit: the agent may change its own code (writes still ask for approval).")
     tools = make_tools(cfg, allow_self_edit=self_edit)
     approve = auto_approve if yes else None  # None: ask in the terminal
+
+    if args.cmd == "context":
+        session = Session(cfg, session_name or "default", tools=tools)
+        rows = anatomy(session)
+        total = sum(n for _, n in rows)
+        print(f"Next request in session '{session.name}' (estimated at 3 characters per token):\n")
+        for part, n in rows:
+            print(f"  {part:<28} {n:>7,}  {n / total:6.1%}" if total else f"  {part:<28} {n:>7,}")
+        print(f"  {'total':<28} {total:>7,}  (budget SA_CONTEXT_TOKENS={cfg.context_tokens:,})")
+        return 0
 
     if args.cmd == "ask":  # one task; without --session nothing is saved and no summary is made
         session = Session(cfg, session_name, tools=tools, approve=approve, summarize=bool(session_name))

@@ -5,12 +5,15 @@ Two rules are enforced here, in the tools themselves, so no hook, approval or `-
 - **protected paths**: the agent's own code and state can't be written, and `.env` files can't be touched at all.
 
 Each tool's schema is generated from its signature and Google-style docstring: one registry, nothing to drift.
+`read_file` wraps what it reads in `<file path="...">` tags ("spotlighting"): vault content is data, and the spec
+tells the model so. `MEMORY.MD` has a size cap: the agent must curate it, not append forever.
 """
 
 from __future__ import annotations
 
 import inspect
 import json
+import re
 import typing
 from pathlib import Path
 from typing import Callable, Iterable, Literal
@@ -19,6 +22,7 @@ from sa.config import PROJECT, Config
 
 SELF = (PROJECT / "main.py", PROJECT / "sa", PROJECT / "spec")  # the agent's own code: never written by the agent
 SECRET_NAMES = {".env"}  # never read or written, wherever they are
+MEMORY_FILE = "MEMORY.MD"
 PATH_ARGS = ("file_name", "directory", "directory_path")
 
 
@@ -42,12 +46,16 @@ class Tools:
     written even inside the vault (see `make_tools`).
     """
 
-    def __init__(self, root: Path, ask: Callable[[str], str] = ask_in_terminal, protect: Iterable[Path] = ()):
+    def __init__(self, root: Path, ask: Callable[[str], str] = ask_in_terminal, protect: Iterable[Path] = (),
+                 memory_cap: int | None = None, spotlight: bool = True):
         self.root = Path(root).resolve()
         self.ask = ask
         self.protect = tuple(Path(p).resolve() for p in protect)
+        self.memory_cap = memory_cap
+        self.spotlight = spotlight
         self.registry: dict[str, Callable[..., str]] = {
             "read_file": self.read_file,
+            "search_vault": self.search_vault,
             "write_file": self.write_file,
             "replace_in_file": self.replace_in_file,
             "remove_from_file": self.remove_from_file,
@@ -108,14 +116,58 @@ class Tools:
         return path.relative_to(self.root).as_posix() or "."
 
     # ---------------------------------------------------------------- the tools
-    def read_file(self, file_name: str) -> str:
-        """Read a text file of the vault.
+    def read_file(self, file_name: str, start_line: int = 1, max_lines: int = 300) -> str:
+        """Read a text file of the vault, or a range of its lines for a long file.
 
         Args:
             file_name: Path of the file, relative to the vault (e.g. "MEMORY.MD", "projects/gp/plan.md").
+            start_line: First line to read, counting from 1. Default: 1.
+            max_lines: How many lines to read at most. Default: 300.
         """
         path = self._safe(file_name)
-        return f"Reading file {self._shown(path)} content: {path.read_text(encoding='utf-8')}"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        first = max(start_line, 1)
+        chunk = lines[first - 1:first - 1 + max(max_lines, 1)]
+        last = first + len(chunk) - 1
+        text = "\n".join(chunk)
+        if last < len(lines):
+            text += f"\n[… {len(lines) - last} more lines: read again with start_line={last + 1}]"
+        shown = self._shown(path)
+        if not self.spotlight:
+            return f"Reading file {shown} content: {text}"
+        text = text.replace("</file>", "</file​>")  # a note can't close our tag and speak as the harness
+        return f'<file path="{shown}" lines="{first}-{last} of {len(lines)}">\n{text}\n</file>'
+
+    def search_vault(self, query: str, max_results: int = 20) -> str:
+        """Find notes in the vault: Markdown lines (and file names) containing the query's words, best matches first.
+        Arabic spelling variants (أ/إ/آ/ا, ة/ه, ى/ي, diacritics) match each other.
+
+        Args:
+            query: Words to look for, e.g. "AI final exam" or "مشروع التخرج".
+            max_results: How many matching lines to return at most. Default: 20.
+        """
+        terms = [t for t in _normalize(query).split() if len(t) > 1]
+        if not terms:
+            raise ValueError("the query has no words to search for")
+        hits = []
+        for path in sorted(self.root.rglob("*")):
+            if path.suffix.lower() != ".md" or not path.is_file():  # MEMORY.MD and note.md alike
+                continue
+            rel = path.relative_to(self.root)
+            if any(part.startswith(".") for part in rel.parts) or not path.resolve().is_relative_to(self.root):
+                continue  # hidden folders (.obsidian, .git) and symlinks that lead out
+            name_score = sum(t in _normalize(rel.as_posix()) for t in terms)
+            if name_score:
+                hits.append((name_score + 0.5, rel.as_posix(), 0, "(file name matches)"))
+            for n, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                score = sum(t in _normalize(line) for t in terms)
+                if score:
+                    hits.append((score, rel.as_posix(), n, line.strip()[:200]))
+        if not hits:
+            return f"No notes match {query!r}. Try fewer or different words, or list_dir to browse."
+        hits.sort(key=lambda h: (-h[0], h[1], h[2]))
+        found = [{"path": p, "line": n, "text": t} for _, p, n, t in hits[:max(max_results, 1)]]
+        return json.dumps({"matches": found, "total": len(hits)}, ensure_ascii=False)
 
     def write_file(self, file_name: str, content: str, write_mode: Literal["a", "w"] = "a") -> str:
         """Write text to a file of the vault: append to it, or overwrite it. The folder must exist (use make_dir).
@@ -128,6 +180,8 @@ class Tools:
         if write_mode not in ("a", "w"):
             raise ValueError("write_mode must be 'a' (append) or 'w' (overwrite)")
         path = self._safe(file_name, write=True)
+        old = path.read_text(encoding="utf-8") if path.is_file() else ""
+        self._check_memory_cap(path, old, old + content if write_mode == "a" else content)
         with open(path, write_mode, encoding="utf-8") as f:
             f.write(content)
         return f"Done writing to file: {self._shown(path)} ({len(content)} characters, mode {write_mode!r})"
@@ -196,8 +250,17 @@ class Tools:
         if count > 1 and not replace_all:
             raise ValueError(f"{_short(old)!r} appears {count} times in {file_name}. Include more of the surrounding "
                              f"text so it appears once, or set replace_all to change every occurrence.")
-        path.write_text(content.replace(old, new) if replace_all else content.replace(old, new, 1), encoding="utf-8")
+        updated = content.replace(old, new) if replace_all else content.replace(old, new, 1)
+        self._check_memory_cap(path, content, updated)
+        path.write_text(updated, encoding="utf-8")
         return count
+
+    def _check_memory_cap(self, path: Path, old: str, new: str) -> None:
+        """MEMORY.MD may not grow past the cap (shrinking it is always allowed, even when it is over)."""
+        if (self.memory_cap and path == self.root / MEMORY_FILE and len(new) > self.memory_cap
+                and len(new) > len(old)):
+            raise ValueError(f"{MEMORY_FILE} would be {len(new):,} characters, over its {self.memory_cap:,}-character "
+                             f"cap. Merge or prune outdated entries (replace_in_file / remove_from_file), then add.")
 
 
 WRITE_TOOLS = {"write_file", "replace_in_file", "remove_from_file", "make_dir"}
@@ -206,7 +269,16 @@ WRITE_TOOLS = {"write_file", "replace_in_file", "remove_from_file", "make_dir"}
 def make_tools(cfg: Config, ask: Callable[[str], str] = ask_in_terminal, allow_self_edit: bool = False) -> Tools:
     """The tools as the CLI uses them: the agent's own code and its state folder (sessions, audit log, traces)
     protected, unless Sami started it with --allow-self-edit."""
-    return Tools(cfg.root, ask=ask, protect=() if allow_self_edit else (*SELF, cfg.state))
+    return Tools(cfg.root, ask=ask, protect=() if allow_self_edit else (*SELF, cfg.state), memory_cap=cfg.memory_cap)
+
+
+_ARABIC_VARIANTS = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ة": "ه", "ى": "ي"})
+_ARABIC_MARKS = re.compile(r"[\u064B-\u0652\u0640]")  # diacritics (harakat) and tatweel
+
+
+def _normalize(text: str) -> str:
+    """For search: case-insensitive, and Arabic spelling variants and diacritics folded together."""
+    return _ARABIC_MARKS.sub("", text).translate(_ARABIC_VARIANTS).casefold()
 
 
 def _short(text: str, width: int = 60) -> str:

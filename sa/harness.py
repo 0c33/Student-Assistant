@@ -98,6 +98,17 @@ def preview(tools: Tools, name: str, args: dict, max_lines: int = 12) -> str:
     return "\n".join([head, *body])
 
 
+def cap_results(max_chars: int) -> Callable[[str, dict, str], str | None]:
+    """An after_tool hook: a result longer than `max_chars` is cut, with a note saying how much and how to get the
+    rest. One long note can't flood the context window."""
+    def cap(name: str, args: dict, result: str) -> str | None:
+        if len(result) <= max_chars:
+            return None
+        return (result[:max_chars] + f"\n[… {len(result) - max_chars:,} characters cut. Read a smaller part: "
+                f"read_file with start_line/max_lines, or search_vault.]")
+    return cap
+
+
 def _diff_lines(sign: str, text: str, max_lines: int) -> list[str]:
     lines = text.splitlines()
     out = [f"   {sign} {line}" for line in lines[:max_lines]]
