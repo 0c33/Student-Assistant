@@ -17,7 +17,7 @@ jobs:
       - name: Replay the committed eval suite and compare with the committed CSVs
         run: uv run evals/run.py --config A B --trials 3 --replay
       - name: Replay the recorded security runs
-        run: uv run security/redteam.py --replay --cases memory-poison && uv run security/injection_test.py --replay
+        run: uv run security/redteam.py --replay --cases memory-poison && uv run security/injection_test.py --replay --unsafe
 
   smoke-eval:
     name: smoke eval on the free model (gate 0.6)

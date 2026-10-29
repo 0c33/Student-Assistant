@@ -14,7 +14,7 @@ Model calls are a plain `requests.post` to `/chat/completions` (`sa/llm.py`); no
 uv sync
 uv run pytest                                              # scripted fake model, no network
 uv run evals/run.py --config A B --trials 1 --replay       # the committed eval run, replayed from its cache
-uv run security/injection_test.py --replay                 # the attack, naive vs. defended, replayed
+uv run security/injection_test.py --replay --unsafe        # the recorded attack run (naive), replayed
 ```
 
 ## Layout
