@@ -24,7 +24,7 @@ Work in progress; this table is updated every phase and only lists what the repo
 | 1 · Multi-step tasks, ≥ 3 tools, one over MCP | ✅ 8 tools; 7 exposed by our MCP server and consumed by the agent over stdio (`SA_TOOLS=mcp`) | `sa/tools.py`, `servers/vault_mcp.py`, `sa/mcp_client.py`, `tests/test_mcp.py`, `docs/mcp.md`, `docs/runs/2026-10-29-llamacpp-mcp/` |
 | 2 · Context file, memory or retrieval, compaction/budget rule | ✅ spec file; MEMORY.MD (capped) + `search_vault`; token-budgeted compaction | `spec/AGENTS.md`, `sa/context.py`, `sa/session.py` (`tail`, `summarize`, `anatomy`), `tests/test_context.py`, `docs/runs/2026-10-29-llamacpp-date-arabic/` |
 | 3 · Human approval on ≥ 1 write, step and cost budgets | ✅ approvals with diff preview; steps, tokens and cost budgets | `sa/harness.py` (`Policy`, `TerminalApproval`, budgets), `sa/tools.py::_safe`, `tests/test_security.py`, `docs/runs/2026-10-29-llamacpp-approval/` |
-| 4 · ≥ 15 eval tasks, two configs, error analysis | ✅ 19 tasks, 11 grader types, A vs. B, CSVs + transcripts, offline replay | `evals/`, `evals/results/`, section *Evaluation* below |
+| 4 · ≥ 15 eval tasks, two configs, error analysis | ✅ 19 tasks written (15 in the committed run), 11 grader types, A vs. B, CSVs + transcripts, offline replay | `evals/`, `evals/results/`, section *Evaluation* below |
 | 5 · Security note: trifecta, attack, defence | ✅ trifecta, the attack naive vs. defended, defences in code, red-team suite | `security/`, `security/results/`, section *Security note* below |
 
 ## Problem
@@ -48,7 +48,7 @@ SA_TOOLS=mcp uv run main.py ask "What's in my memory?"   # the same agent, vault
 uv run servers/vault_mcp.py --root vault --http 8765      # the vault for any MCP host (read-only unless --write)
 uv run pytest                 # 185 offline tests: a scripted fake model, no key, no network
 uv run evals/run.py --config A B --trials 3            # the eval suite (record), then: uv run evals/report.py
-uv run evals/run.py --config A B --trials 1 --replay   # the committed run, offline: compared with the CSVs
+uv run evals/run.py --config A B --replay             # the committed run, offline: compared with the CSVs
 uv run security/injection_test.py                      # the attack, without and with the defences
 uv run security/redteam.py                             # 6 attacks + 2 benign tasks, naive vs. defended
 ```
@@ -104,7 +104,8 @@ started with `--write` and carry `destructiveHint`; HTTP binds 127.0.0.1 only (`
 
 ## Evaluation
 
-**Suite:** 19 tasks in `evals/tasks.jsonl` on a synthetic vault (`evals/fixtures/`), in 8 categories (memory,
+**Suite:** 19 tasks in `evals/tasks.jsonl` (the committed run covers 15 of them, all 8 categories, for time:
+`proj-new`, `summarize-note`, `sec-self-edit` and `plan-ar` are the next to record) on a synthetic vault (`evals/fixtures/`), in 8 categories (memory,
 dates, projects, editing, retrieval, clarification, security, planning, honesty), 5 of them in Arabic. Graders
 (`evals/graders.py`): answer checks (`contains_any`, `not_contains`), tool checks (`tool_called`,
 `tool_not_called`), **end-state checks on the vault** (`file_contains`, `file_not_contains`, `file_unchanged`,
@@ -153,7 +154,8 @@ defence and whether code, a human or the model enforces it, residual risk, gover
 
 ## Limitations and next steps
 
-- The committed eval run has 1 trial per task (time); pass^k at k = 3 is one command away (`--trials 3`).
+- The committed eval run has 15 of the 19 tasks and 1 trial per task (time); the rest and pass^k at k = 3 are
+  one command away (`uv run evals/run.py --config A B --trials 3`).
 - Recorded runs used a local model; the OpenRouter configuration is tested offline (`tests/test_llm.py`) but not
   yet recorded on the graded free model.
 - Over MCP, `--allow-self-edit` has no effect: the server always protects the agent's code (deliberately).

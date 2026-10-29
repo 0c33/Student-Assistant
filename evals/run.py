@@ -66,6 +66,13 @@ def main() -> int:
 
     base = config.load()
     tasks = [json.loads(line) for line in TASKS.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if args.replay and not args.tasks:  # replay exactly what was recorded
+        recorded = set()
+        for name in args.config:
+            if (args.out / f"{name}.csv").is_file():
+                with (args.out / f"{name}.csv").open(encoding="utf-8") as f:
+                    recorded |= {r["task"] for r in csv.DictReader(f)}
+        args.tasks = sorted(recorded)
     if args.tasks:
         tasks = [t for t in tasks if t["id"] in args.tasks]
     print(f"{len(tasks)} tasks × {args.trials} trials × configs {args.config} · model {base.model} · "
