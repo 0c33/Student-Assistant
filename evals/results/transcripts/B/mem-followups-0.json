@@ -1,0 +1,51 @@
+{
+ "task": {
+  "id": "mem-followups",
+  "category": "memory",
+  "lang": "en",
+  "prompt": "What's on my follow-up list?",
+  "graders": [
+   {
+    "type": "contains_any",
+    "values": [
+     "Noura"
+    ]
+   },
+   {
+    "type": "contains_any",
+    "values": [
+     "chapter 3",
+     "search"
+    ]
+   }
+  ]
+ },
+ "config": "B",
+ "trial": 0,
+ "passed": true,
+ "stopped": "done",
+ "final": "Here's what's on your follow-up list right now:\n\n**Pending / Follow-up**\n- 📅 **Book a meeting with Dr. Noura** about Saut's intent parser — still undecided since Oct 20, and the prototype demo is **Nov 15** (17 days out), so sooner is better.\n- 📖 **Revise chapter 3 (search)** before the AI final — that's **Nov 20**, so no panic, but it pairs well with your daily study blocks.\n\n⚠️ One thing worth flagging: your **Information Security midterm is in 7 days** (Nov 5, 10:00, room B-12) and it's marked as active in your context but has no detailed plan yet. Want me to break it down into a study schedule for this week?",
+ "grades": [
+  {
+   "type": "contains_any",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "type": "contains_any",
+   "pass": true,
+   "detail": ""
+  }
+ ],
+ "files_changed_or_new": {},
+ "messages": [
+  {
+   "role": "user",
+   "content": "What's on my follow-up list?"
+  },
+  {
+   "role": "assistant",
+   "content": "Here's what's on your follow-up list right now:\n\n**Pending / Follow-up**\n- 📅 **Book a meeting with Dr. Noura** about Saut's intent parser — still undecided since Oct 20, and the prototype demo is **Nov 15** (17 days out), so sooner is better.\n- 📖 **Revise chapter 3 (search)** before the AI final — that's **Nov 20**, so no panic, but it pairs well with your daily study blocks.\n\n⚠️ One thing worth flagging: your **Information Security midterm is in 7 days** (Nov 5, 10:00, room B-12) and it's marked as active in your context but has no detailed plan yet. Want me to break it down into a study schedule for this week?"
+  }
+ ]
+}

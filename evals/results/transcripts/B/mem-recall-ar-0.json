@@ -1,0 +1,68 @@
+{
+ "task": {
+  "id": "mem-recall-ar",
+  "category": "memory",
+  "lang": "ar",
+  "prompt": "وش قررت بخصوص تحويل الكلام إلى نص في مشروع التخرج؟",
+  "graders": [
+   {
+    "type": "contains_any",
+    "values": [
+     "Whisper",
+     "ويسبر"
+    ]
+   },
+   {
+    "type": "judge",
+    "rubric": "Replies in Arabic and says the decision was to use Whisper for speech-to-text."
+   }
+  ]
+ },
+ "config": "B",
+ "trial": 0,
+ "passed": true,
+ "stopped": "done",
+ "final": "قررت استخدام **Whisper** لتحويل الكلام إلى نص في مشروع \"صوت\" 🎙️\n\nهذا مسجّل كقرار بتاريخ **2026-10-20**، وهو مُنفَّذ فعليًا — ملف المشروع (`projects/voice-assistant/README.md`) يؤكد أن الـ speech-to-text يشتغل ✅\n\nاللي باقي مفتوح: **محلل النوايا (intent parser)**. وموعد الـ prototype demo هو **15 نوفمبر** — يعني باقي ~17 يوم، فيستحسن تنجزه قريب.\n\nتحب أساعدك تخطط للـ intent parser، أو أجهّز لك نقاط للقاء الدكتورة نورة؟",
+ "grades": [
+  {
+   "type": "contains_any",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "type": "judge",
+   "pass": true,
+   "detail": "The reply is in Arabic and clearly states that Whisper was chosen for speech-to-text."
+  }
+ ],
+ "files_changed_or_new": {},
+ "messages": [
+  {
+   "role": "user",
+   "content": "وش قررت بخصوص تحويل الكلام إلى نص في مشروع التخرج؟"
+  },
+  {
+   "role": "assistant",
+   "content": null,
+   "tool_calls": [
+    {
+     "id": "call_5cf9ad3cf08d44e8869e4e6b",
+     "type": "function",
+     "function": {
+      "name": "search_vault",
+      "arguments": "{\"query\":\"Whisper speech-to-text Saut \\u0642\\u0631\\u0627\\u0631\"}"
+     }
+    }
+   ]
+  },
+  {
+   "role": "tool",
+   "tool_call_id": "call_5cf9ad3cf08d44e8869e4e6b",
+   "content": "{\"matches\": [{\"path\": \"MEMORY.MD\", \"line\": 7, \"text\": \"- 2026-10-20: Use Whisper for speech-to-text in Saut; the intent parser is still open.\"}, {\"path\": \"projects/voice-assistant/README.md\", \"line\": 7, \"text\": \"- [x] Speech-to-text with Whisper\"}, {\"path\": \"MEMORY.MD\", \"line\": 2, \"text\": \"- Graduation project: Arabic voice assistant \\\"Saut\\\", prototype demo on 2026-11-15 (projects/voice-assistant/).\"}, {\"path\": \"projects/voice-assistant/README.md\", \"line\": 1, \"text\": \"# Saut · Arabic voice assistant (graduation project)\"}, {\"path\": \"projects/voice-assistant/README.md\", \"line\": 3, \"text\": \"Status: speech-to-text works, intent parser missing.\"}], \"total\": 5}"
+  },
+  {
+   "role": "assistant",
+   "content": "قررت استخدام **Whisper** لتحويل الكلام إلى نص في مشروع \"صوت\" 🎙️\n\nهذا مسجّل كقرار بتاريخ **2026-10-20**، وهو مُنفَّذ فعليًا — ملف المشروع (`projects/voice-assistant/README.md`) يؤكد أن الـ speech-to-text يشتغل ✅\n\nاللي باقي مفتوح: **محلل النوايا (intent parser)**. وموعد الـ prototype demo هو **15 نوفمبر** — يعني باقي ~17 يوم، فيستحسن تنجزه قريب.\n\nتحب أساعدك تخطط للـ intent parser، أو أجهّز لك نقاط للقاء الدكتورة نورة؟"
+  }
+ ]
+}

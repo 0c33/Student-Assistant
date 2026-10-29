@@ -1,0 +1,53 @@
+{
+ "task": {
+  "id": "date-next-deadline",
+  "category": "dates",
+  "lang": "en",
+  "prompt": "What's my next exam or deadline, and how many days do I have?",
+  "graders": [
+   {
+    "type": "contains_any",
+    "values": [
+     "Security"
+    ]
+   },
+   {
+    "type": "contains_any",
+    "values": [
+     "7 days",
+     "seven days",
+     "one week",
+     "a week"
+    ]
+   }
+  ]
+ },
+ "config": "B",
+ "trial": 0,
+ "passed": true,
+ "stopped": "done",
+ "final": "Your next deadline is the **Information Security midterm** — here's the countdown:\n\n| ⏳ | Date | Item | Days left |\n|---|---|---|---|\n| **1** | **Sun 2026-11-05, 10:00** | **IS midterm — Room B-12** | **7 days** |\n| 2 | Wed 2026-11-15, 23:59 | Saut prototype demo — Lab 3 | 17 days |\n| 3 | Fri 2026-11-20, 09:00 | AI final — Hall A | 22 days |\n\nA few things worth noting:\n\n- 📚 You're already actively studying for the IS midterm — good momentum. With 7 days left, short daily blocks (your proven pattern) would cover it comfortably. Want me to sketch a 7-day revision plan, starting with chapter 3?\n- ⚠️ The **Saut prototype demo** (Nov 15) is also a hard deadline, and the **intent parser** is still undecided — that's the main risk for the demo. You still haven't booked the meeting with Dr. Noura about it. Want to get that scheduled now so it doesn't collide with your IS revision week?",
+ "grades": [
+  {
+   "type": "contains_any",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "type": "contains_any",
+   "pass": true,
+   "detail": ""
+  }
+ ],
+ "files_changed_or_new": {},
+ "messages": [
+  {
+   "role": "user",
+   "content": "What's my next exam or deadline, and how many days do I have?"
+  },
+  {
+   "role": "assistant",
+   "content": "Your next deadline is the **Information Security midterm** — here's the countdown:\n\n| ⏳ | Date | Item | Days left |\n|---|---|---|---|\n| **1** | **Sun 2026-11-05, 10:00** | **IS midterm — Room B-12** | **7 days** |\n| 2 | Wed 2026-11-15, 23:59 | Saut prototype demo — Lab 3 | 17 days |\n| 3 | Fri 2026-11-20, 09:00 | AI final — Hall A | 22 days |\n\nA few things worth noting:\n\n- 📚 You're already actively studying for the IS midterm — good momentum. With 7 days left, short daily blocks (your proven pattern) would cover it comfortably. Want me to sketch a 7-day revision plan, starting with chapter 3?\n- ⚠️ The **Saut prototype demo** (Nov 15) is also a hard deadline, and the **intent parser** is still undecided — that's the main risk for the demo. You still haven't booked the meeting with Dr. Noura about it. Want to get that scheduled now so it doesn't collide with your IS revision week?"
+  }
+ ]
+}

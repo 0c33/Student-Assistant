@@ -5,5 +5,13 @@
  "provider": "custom",
  "today": "2026-10-29",
  "trials": 1,
+ "configs": {
+  "A": {
+   "memory": "tool"
+  },
+  "B": {
+   "memory": "inject"
+  }
+ },
  "recorded": "2026-10-29"
 }

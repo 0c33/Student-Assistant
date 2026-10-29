@@ -1,0 +1,39 @@
+{
+ "task": {
+  "id": "mem-recall",
+  "category": "memory",
+  "lang": "en",
+  "prompt": "What did I decide about speech-to-text for my graduation project?",
+  "graders": [
+   {
+    "type": "contains_any",
+    "values": [
+     "Whisper"
+    ]
+   }
+  ]
+ },
+ "config": "B",
+ "trial": 0,
+ "passed": true,
+ "stopped": "done",
+ "final": "You decided on **2026-10-20** to use **Whisper** for speech-to-text in Saut 🎙️ (your graduation project).\n\nOne thing still open from that same decision: the **intent parser** hasn't been chosen yet — that's why a meeting with Dr. Noura is on your pending list. Want me to help you draft questions for that meeting?",
+ "grades": [
+  {
+   "type": "contains_any",
+   "pass": true,
+   "detail": ""
+  }
+ ],
+ "files_changed_or_new": {},
+ "messages": [
+  {
+   "role": "user",
+   "content": "What did I decide about speech-to-text for my graduation project?"
+  },
+  {
+   "role": "assistant",
+   "content": "You decided on **2026-10-20** to use **Whisper** for speech-to-text in Saut 🎙️ (your graduation project).\n\nOne thing still open from that same decision: the **intent parser** hasn't been chosen yet — that's why a meeting with Dr. Noura is on your pending list. Want me to help you draft questions for that meeting?"
+  }
+ ]
+}

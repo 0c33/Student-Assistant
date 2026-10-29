@@ -1,0 +1,39 @@
+{
+ "task": {
+  "id": "date-ai-final",
+  "category": "dates",
+  "lang": "en",
+  "prompt": "How many days until my AI final?",
+  "graders": [
+   {
+    "type": "contains_any",
+    "values": [
+     "22"
+    ]
+   }
+  ]
+ },
+ "config": "B",
+ "trial": 0,
+ "passed": true,
+ "stopped": "done",
+ "final": "**22 days** 📅\n\nYour AI final (CS 471, Dr. Huda) is on **Friday 20 November 2026, 09:00, Hall A** — today is Thursday 29 October, so that's 22 days out.\n\nWorth noting: it lands right after your prototype demo (Nov 15), so the week before the final will be tight. Also, chapter 3 (search) is still on your revision list. Want me to sketch a quick study schedule for it?",
+ "grades": [
+  {
+   "type": "contains_any",
+   "pass": true,
+   "detail": ""
+  }
+ ],
+ "files_changed_or_new": {},
+ "messages": [
+  {
+   "role": "user",
+   "content": "How many days until my AI final?"
+  },
+  {
+   "role": "assistant",
+   "content": "**22 days** 📅\n\nYour AI final (CS 471, Dr. Huda) is on **Friday 20 November 2026, 09:00, Hall A** — today is Thursday 29 October, so that's 22 days out.\n\nWorth noting: it lands right after your prototype demo (Nov 15), so the week before the final will be tight. Also, chapter 3 (search) is still on your revision list. Want me to sketch a quick study schedule for it?"
+  }
+ ]
+}
