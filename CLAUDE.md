@@ -199,7 +199,7 @@ SA_FALLBACKS=google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-super-120b-a12b:fr
 # SA_API_KEY=none
 # SA_MODEL=<model name the server expects>
 
-SA_ROOT=~/Documents/LifeLogs     # the vault; every file tool is confined here (Phase 1b: commented out by default)
+# SA_ROOT=~/Documents/LifeLogs   # the vault; every file tool is confined here (default: vault/ in the project)
 SA_TZ=Asia/Riyadh
 SA_MAX_STEPS=20
 SA_MAX_COST_USD=0.05             # per task; free models count tokens at 0
@@ -236,22 +236,23 @@ SA_CACHE=1                       # replay identical requests from .sa/cache (sav
   `system, user, assistant(tool_calls), tool, assistant`. A real run against OpenRouter Gemma completes a
   two-tool task without a 400.
   - ✅ fake-LLM acceptance test (`tests/test_harness.py::test_read_then_answer_gives_the_full_history`).
-  - ✅ real run on Sami's llama.cpp server (2026-10-29): 4 tool calls incl. two parallel ones, no error.
+  - ✅ real run on Sami's llama.cpp server (2026-10-29): 4 tool calls incl. two parallel ones, no error
+    (`docs/runs/2026-10-29-llamacpp-multi-tool/`).
   - ⏳ OpenRouter Gemma run: needs `OPENROUTER_API_KEY` in `.env`.
 
-### Phase 1b · Fixes from the first mock grading (do next, then Phase 3, then Phase 2)
+### Phase 1b · Fixes from the first mock grading ✅ (then Phase 3, then Phase 2)
 The agent can currently read and write outside the vault with no approval, so safety (Phase 3) comes before
 context (Phase 2). These small fixes go first:
-- [ ] `tests/conftest.py` clears **every** `SA_*` variable before each test (a developer `.env` with
+- [x] `tests/conftest.py` clears **every** `SA_*` variable before each test (a developer `.env` with
       `SA_RETRIES=0` must not change test results).
-- [ ] `run_task` / `Session` resolve `llm.chat` and `llm.LEDGER` at call time, not as default-argument values
+- [x] `run_task` / `Session` resolve `llm.chat` and `llm.LEDGER` at call time, not as default-argument values
       bound at import (a rebound ledger must be the one the budget reads).
-- [ ] `llm`: a `Retry-After` above `MAX_WAIT` skips straight to the next model instead of sleeping 30 s and
+- [x] `llm`: a `Retry-After` above `MAX_WAIT` skips straight to the next model instead of sleeping 30 s and
       retrying; cap the total wait per request (≤ 20 s: the Day 5 switch-to-backup threshold). The `MAX_WAIT`
       comment must match the code.
-- [ ] `.env.example` must not point `SA_ROOT` at a real personal folder: leave it commented (default:
+- [x] `.env.example` must not point `SA_ROOT` at a real personal folder: leave it commented (default:
       `vault/` in the project), and `main.py` only auto-creates that default, never an arbitrary path.
-- [ ] Commit the 2026-10-29 llama.cpp run (synthetic vault) as `docs/runs/` evidence for the Phase 1 claim.
+- [x] Commit the 2026-10-29 llama.cpp run (synthetic vault) as `docs/runs/` evidence for the Phase 1 claim.
 
 ### Phase 2 · Context engineering (bug 10, 14 · capstone req 2)
 - [ ] Move the system prompt to `spec/AGENTS.md` (**not** the root: Codex would load it as its own instructions).

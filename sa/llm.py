@@ -25,7 +25,8 @@ from sa.config import Config
 
 RETRY_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}  # temporary: wait, then try the same model again
 NEXT_MODEL_STATUS = {404}  # this model is missing or has no endpoint: try the next model
-MAX_WAIT = 30.0  # seconds; a Retry-After of hours (daily quota gone) is not worth waiting for
+MAX_WAIT = 20.0  # seconds of retry sleeping per chat() call, all models together (Day 5: switch to backup after 20 s)
+#                  a server asking for a longer wait (daily quota gone) sends us to the next model at once
 
 _sleep = time.sleep  # tests replace this
 
@@ -43,10 +44,16 @@ class Ledger:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cost: float = 0.0  # USD, as reported by the provider (free models: 0)
+    last_model: str = ""  # the model that answered the last call (a fallback, maybe)
 
-    def add(self, usage: dict | None, cached: bool = False) -> None:
+    @property
+    def tokens(self) -> int:
+        return self.prompt_tokens + self.completion_tokens
+
+    def add(self, usage: dict | None, cached: bool = False, model: str = "") -> None:
         usage = usage or {}
         self.calls += 1
+        self.last_model = model
         self.cache_hits += cached
         self.prompt_tokens += usage.get("prompt_tokens") or 0
         self.completion_tokens += usage.get("completion_tokens") or 0
@@ -75,18 +82,18 @@ def chat(messages: list[dict], tools: list[dict] | None = None, model: str | Non
     if not first:
         raise LLMError("No model set: put SA_MODEL=<the model name your server expects> in .env.")
 
-    failures = []
+    failures, patience = [], _Patience(MAX_WAIT)
     for name in dict.fromkeys([first, *cfg.fallbacks]):  # in order, without duplicates
         payload = {"model": name, "messages": messages}
         if tools:
             payload["tools"] = tools
         try:
-            data, cached = _request(cfg, payload)
+            data, cached = _request(cfg, payload, patience)
         except _NextModel as e:
             failures.append(f"{name}: {e}")
             print(f"⚠️  model {name} failed ({e})")
             continue
-        LEDGER.add(data.get("usage"), cached)
+        LEDGER.add(data.get("usage"), cached, model=data.get("model") or name)
         return _assistant_message(data)
     raise LLMError("No model answered. " + " | ".join(failures))
 
@@ -104,7 +111,14 @@ class _NextModel(Exception):
     """This model can't answer now: move on to the next one."""
 
 
-def _request(cfg: Config, payload: dict) -> tuple[dict, bool]:
+@dataclass
+class _Patience:
+    """Seconds of retry sleeping left for one chat() call, shared by all the models it tries."""
+
+    left: float
+
+
+def _request(cfg: Config, payload: dict, patience: _Patience) -> tuple[dict, bool]:
     """The raw response JSON for one model (and whether it came from the cache)."""
     path = _cache_path(cfg, payload) if cfg.cache else None
     if path and path.exists():
@@ -121,10 +135,14 @@ def _request(cfg: Config, payload: dict) -> tuple[dict, bool]:
             data = _send(url, payload, headers, cfg.timeout)
         except _Retry as e:
             reason = str(e)
-            if attempt < cfg.retries:
-                wait = e.wait if e.wait is not None else 2 ** attempt + random.random()
-                print(f"⏳ {payload['model']}: {reason}; retrying in {wait:.1f} s")
-                _sleep(min(wait, MAX_WAIT))
+            if attempt == cfg.retries:
+                break
+            wait = e.wait if e.wait is not None else 2 ** attempt + random.random()
+            if wait > patience.left:  # the server wants longer than we will wait: the next model may answer now
+                raise _NextModel(f"{reason}; asked to wait {wait:.0f} s") from None
+            print(f"⏳ {payload['model']}: {reason}; retrying in {wait:.1f} s")
+            patience.left -= wait
+            _sleep(wait)
             continue
         if path:
             path.parent.mkdir(parents=True, exist_ok=True)

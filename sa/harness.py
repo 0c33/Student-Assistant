@@ -31,14 +31,16 @@ class Run:
 
 
 def run_task(task: str, history: list[dict], tools: Tools, *, system: str,
-             chat: Callable[..., dict] = llm.chat, model: str | None = None,
+             chat: Callable[..., dict] | None = None, model: str | None = None,
              max_steps: int = 20, max_cost: float | None = None,
              permission: Callable[[str, dict], str] | None = None,
              approve: Callable[[str, dict], bool] | None = None,
              before_tool: Callable[[str, dict], str | None] | None = None,
              after_tool: Callable[[str, dict, str], str | None] | None = None,
-             ledger: llm.Ledger = llm.LEDGER, verbose: bool = True) -> Run:
-    """Drive one task to completion. `history` is the earlier conversation (no system message)."""
+             ledger: llm.Ledger | None = None, verbose: bool = True) -> Run:
+    """Drive one task to completion. `history` is the earlier conversation (no system message).
+    `chat` and `ledger` default to `llm.chat` and `llm.LEDGER`, looked up now (not when this module was imported)."""
+    chat, ledger = chat or llm.chat, ledger or llm.LEDGER
     show = _printer(verbose)
     messages = [{"role": "system", "content": system}, *history, {"role": "user", "content": task}]
     schemas = tools.schemas()

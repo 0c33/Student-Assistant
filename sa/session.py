@@ -41,7 +41,7 @@ class Session:
     """A conversation of tasks. With a `name` it is saved to, and resumed from, `.sa/sessions/<name>.jsonl`."""
 
     def __init__(self, cfg: Config, name: str | None = None, *, tools: Tools | None = None,
-                 chat: Callable[..., dict] = llm.chat, approve: Callable[[str, dict], bool] | None = None,
+                 chat: Callable[..., dict] | None = None, approve: Callable[[str, dict], bool] | None = None,
                  verbose: bool = True):
         self.cfg, self.name, self.chat, self.approve, self.verbose = cfg, name, chat, approve, verbose
         self.tools = tools or Tools(cfg.root)
@@ -61,7 +61,7 @@ class Session:
         self._save({"type": "turn", "messages": turn, "stopped": run.stopped, "steps": run.steps})
         self._add_turn(turn)
 
-        summary = summarize(turn, self.chat, self.cfg.small_model)
+        summary = summarize(turn, self.chat or llm.chat, self.cfg.small_model)
         self._save({"type": "summary", "text": summary})
         self._add_summary(summary)
         if self.verbose:

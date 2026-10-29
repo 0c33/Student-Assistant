@@ -37,7 +37,10 @@ def main(argv: list[str] | None = None) -> int:
     session_name = getattr(args, "session", None)
 
     cfg = config.load()
-    if not cfg.root.exists():
+    if not cfg.root.is_dir():
+        if cfg.root != config.DEFAULT_ROOT:  # never create folders at a path someone typed: it may be a typo
+            print(f"❌ SA_ROOT is {cfg.root}, which is not a folder. Fix SA_ROOT in .env, or remove it to use vault/.")
+            return 2
         cfg.root.mkdir(parents=True)
         print(f"📁 Created the vault folder {cfg.root} (set SA_ROOT in .env to use your own).")
 

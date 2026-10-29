@@ -173,3 +173,32 @@ def test_cache_replays_identical_requests(server, monkeypatch):
     assert len(server.requests) == 1
     assert llm.LEDGER.cache_hits == 1
     assert list((config.load().state / "cache").glob("*.json"))
+
+
+def test_a_long_retry_after_moves_to_the_next_model_without_waiting(server):
+    server.replies = [FakeResponse(429, {"error": {"message": "free-models-per-day"}}, {"Retry-After": "3600"}),
+                      completion("from backup")]
+    assert llm.chat(MESSAGES)["content"] == "from backup"
+    assert server.models == ["main/model:free", "backup/model:free"]
+    assert server.sleeps == []
+
+
+def test_retry_sleeping_is_capped_per_call_across_models(server):
+    """At most MAX_WAIT seconds of sleeping per chat() call, so a stalled demo gives up within the 20 s rule."""
+    slow = FakeResponse(429, {"error": {"message": "slow down"}}, {"Retry-After": "15"})
+    server.replies = [slow, slow, completion("from backup")]
+    assert llm.chat(MESSAGES)["content"] == "from backup"
+    assert server.sleeps == [15.0]  # the second wait (15 s) would exceed the 5 s left: next model, no sleep
+    assert server.models == ["main/model:free", "main/model:free", "backup/model:free"]
+
+    server.replies, server.sleeps = [slow, slow, slow], []
+    with pytest.raises(LLMError):  # the backup asks for 15 s too: over budget, so the call fails fast
+        llm.chat(MESSAGES)
+    assert sum(server.sleeps) <= llm.MAX_WAIT
+
+
+def test_ledger_records_which_model_answered(server):
+    server.replies = [FakeResponse(404), completion()]
+    llm.chat(MESSAGES)
+    assert llm.LEDGER.last_model == "m"  # the "model" field of the reply; the request went to the fallback
+    assert llm.LEDGER.tokens == 15

@@ -48,3 +48,14 @@ def test_fake_llm_raises_scripted_errors_and_when_exhausted():
         llm([])
     with pytest.raises(AssertionError, match="exhausted"):
         llm([])
+
+
+def test_main_refuses_a_missing_custom_vault(isolated_env, monkeypatch, capsys):
+    """A typo in SA_ROOT must not create folders somewhere on the disk."""
+    import main
+
+    missing = isolated_env.parent / "typo" / "vault"
+    monkeypatch.setenv("SA_ROOT", str(missing))
+    assert main.main(["ask", "hi"]) == 2
+    assert not missing.exists()
+    assert "not a folder" in capsys.readouterr().out

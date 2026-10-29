@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 PROJECT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT / ".env")  # never overrides variables that are already set
 
+DEFAULT_ROOT = PROJECT / "vault"  # used when SA_ROOT is not set; the only vault main.py creates by itself
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_DEFAULTS = {
     "model": "google/gemma-4-31b-it:free",
@@ -74,7 +75,7 @@ def load() -> Config:
         model=model,
         small_model=_get("SA_SMALL_MODEL", defaults["small_model"] or model),
         fallbacks=tuple(m.strip() for m in _get("SA_FALLBACKS", defaults["fallbacks"]).split(",") if m.strip()),
-        root=Path(_get("SA_ROOT", str(PROJECT / "vault"))).expanduser().resolve(),
+        root=Path(_get("SA_ROOT", str(DEFAULT_ROOT))).expanduser().resolve(),
         state=Path(_get("SA_STATE", str(PROJECT / ".sa"))).expanduser().resolve(),
         tz=_get("SA_TZ", "Asia/Riyadh"),
         max_steps=_number("SA_MAX_STEPS", "20", int),

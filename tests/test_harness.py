@@ -192,3 +192,15 @@ def test_tools_read_and_write_utf8(tools, isolated_env):
     r = run(fake, tools)
     assert (isolated_env / "ملاحظات.md").read_text(encoding="utf-8") == "اختبار الذكاء الاصطناعي"
     assert "اختبار الذكاء الاصطناعي" in next(m["content"] for m in r.history if m.get("tool_call_id") == "read")
+
+
+def test_budget_reads_the_ledger_that_chat_writes(tools, monkeypatch):
+    """llm.LEDGER is looked up at call time: rebinding it (as tests and evals do) can't split the accounting."""
+    monkeypatch.setattr(llm, "LEDGER", llm.Ledger())
+
+    def pricey(messages, tools_, model=None):
+        llm.LEDGER.cost += 0.03
+        return use_tools(tool_call("list_dir", {}))
+
+    r = run_task("loop", [], tools, system="S", chat=pricey, max_cost=0.05, verbose=False)
+    assert (r.stopped, r.steps) == ("max_cost", 2)
