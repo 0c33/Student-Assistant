@@ -1,0 +1,17 @@
+# secrets and local state
+.env
+.sa/
+
+# Python / uv
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# eval outputs
+evals/out/
+
+# personal data: these live in the vault (SA_ROOT), never in the repo
+/Data.md
+/MEMORY.MD
+/vault/
