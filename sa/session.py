@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from sa import context, llm
 from sa.config import Config
 from sa.context import estimate_tokens
+from sa.decide import clarify_hint
 from sa.harness import Policy, Run, TerminalApproval, cap_results, run_task
 from sa.llm import LLMError
 from sa.telemetry import AuditLog, Tracer, redact
@@ -70,6 +71,12 @@ class Session:
     def ask(self, task: str) -> Run:
         """Run one task with the session's context, then save it and summarise it."""
         system = self.system_prompt()
+        memory_file = self.cfg.root / "MEMORY.MD"
+        hint = clarify_hint(self.cfg, task, memory_file.read_text(encoding="utf-8") if memory_file.is_file() else "")
+        if hint:  # the decision model thinks the request is ambiguous: last part of the prompt (keeps the prefix)
+            system += "\n\n" + hint
+            if self.verbose:
+                print("🤔 decision model: ambiguous request, the agent will ask first")
         history = self.history(system)
         self.tools.tainted.clear()  # taint is per task: what this task read
         run = run_task(task, history, self.tools, system=system, chat=self.chat, model=self.cfg.model,

@@ -49,6 +49,8 @@ class Config:
     cache_dir: Path
     cache_salt: str  # part of every cache key: evals set one per trial, so trials are separate samples
     today: str  # YYYY-MM-DD to pin "today" (evals); empty = the real date
+    decision_url: str  # Sami's local decision model (sa/decide.py); empty = no clarify gate
+    decision_threshold: float  # p(ask_more) from which the agent is told to ask first
     timeout: float  # seconds per request
     retries: int  # per model, on 429 / 5xx / network errors
 
@@ -119,6 +121,8 @@ def _load_provider(provider: str, prefix: str) -> Config:
         cache_dir=Path(_get("SA_CACHE_DIR", str(Path(_get("SA_STATE", str(PROJECT / ".sa"))) / "cache"))).expanduser(),
         cache_salt=_get("SA_CACHE_SALT"),
         today=_get("SA_TODAY"),
+        decision_url=_get("SA_DECISION_URL"),
+        decision_threshold=_number("SA_DECISION_THRESHOLD", "0.6", float),
         timeout=_number("SA_TIMEOUT", "120", float),
         retries=_number("SA_RETRIES", "2", int),
     )
